@@ -1,0 +1,18 @@
+Package: scMAGIC
+Type: Package
+Title: scMAGIC (Single Cell classification Model based on Auto-generated marker Genes and sImilarity Calculation)
+Version: 0.1.0
+Author: Yu Zhang
+Maintainer: Yu Zhang <zhang_yu18@fudan.edu.cn>
+Description: A cell type classifier for single cell RNA sequencing data.
+License: GPL
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    Seurat,
+    limma,
+    parallel,
+    pcaPP,
+    RUVSeq,
+    mclust,
+    homologene
