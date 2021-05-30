@@ -250,35 +250,6 @@
 }
 
 
-.get_tag_second <- function(P_REF_GIVEN_SC) {
-    RN <- rownames(P_REF_GIVEN_SC)
-    CN <- colnames(P_REF_GIVEN_SC)
-    TAG <- cbind(CN, rep('NA', length(CN)))
-    i <- 1
-    while (i <= length(CN)) {
-        TAG[i, 2] <- RN[order(P_REF_GIVEN_SC[,i], decreasing = T)[2]]
-        i <- i + 1
-    }
-    colnames(TAG) <- c('cell_id', 'tag')
-    return(TAG)
-}
-
-
-.get_tag_min <- function(P_REF_GIVEN_SC){
-  RN=rownames(P_REF_GIVEN_SC)
-  CN=colnames(P_REF_GIVEN_SC)
-  TAG=cbind(CN,rep('NA',length(CN)))
-  i=1
-  while(i<=length(CN)){
-    this_rn_index=which(P_REF_GIVEN_SC[,i] == min(P_REF_GIVEN_SC[,i]))[1]
-    TAG[i,2]=RN[this_rn_index]
-    i=i+1
-  }
-  colnames(TAG)=c('cell_id','tag')
-  return(TAG)
-}
-
-
 .generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM', 
                           refnames = FALSE ){
     M <- M
@@ -318,11 +289,6 @@
     }
     rownames(NewRef) <- rownames(exp_sc_mat)
     colnames(NewRef) <- outnames
-    # if (length(NewRef[1, ]) == 1) {
-    #     NewRef <- cbind(NewRef[, 1], NewRef[, 1])
-    #     rownames(NewRef) <- rownames(exp_sc_mat)
-    #     colnames(NewRef) <- c(outnames, outnames)
-    # }
     return(NewRef)
 }
 
@@ -367,13 +333,13 @@
         df.out.group <- out.group
     } else {
         if (class(out.group)[1] == "character") {
-            if (out.group %in% c("MCA", "HCA")) {
+            if (out.group %in% c("MCA", "HCL")) {
                 if (out.group == "MCA") {
                     data(df.MCA)
                     df.out.group <- df.MCA
                 } else {
-                    data(df.HCA)
-                    df.out.group <- df.HCA
+                    data(df.HCL)
+                    df.out.group <- df.HCL
                 }
             } else {
                 if (file.exists(out.group)) {
@@ -411,9 +377,58 @@
 }
 
 
+.find_markers_cell <- function(cell.ref, mtx.combat, exp_ref_mat, percent.high.exp,
+                               mtx.combat.use, topN, i) {
+    cell <- cell.ref[i]
+    # print(cell)
+    vec.cell <- mtx.combat[, paste0('Ref.', cell)]
+    # vec.cell.high <- vec.cell[vec.cell > quantile(vec.cell, percent.high.exp)]
+    vec.ref <- exp_ref_mat[, cell]
+    vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
+    # high expression genes
+    # genes.high <- intersect(names(vec.cell.high), names(vec.ref.high))
+    genes.high <- names(vec.ref.high)
+    
+    # diff in reference
+    cells <- c(setdiff(cell.ref, cell), cell)
+    bool.cell <- cells
+    bool.cell[bool.cell != cell] <- '1'
+    bool.cell[bool.cell == cell] <- '2'
+    res.limma.ref <- .getDEgeneF(exp_ref_mat[genes.high, cells], bool.cell)
+    res.limma.ref <- res.limma.ref[res.limma.ref$logFC > 0,]
+    genes.ref <- row.names(res.limma.ref[(res.limma.ref$P.Value < 0.1),])
+    if (length(genes.ref) < (3*topN)) {
+        res.limma.ref <- res.limma.ref[order(res.limma.ref$P.Value),]
+        genes.ref <- row.names(res.limma.ref)[1:(3*topN)]
+    }
+    use.genes <- intersect(genes.high, genes.ref)
+    
+    # diff in Atlas
+    if (length(use.genes) > topN) {
+        mtx.limma <- cbind(mtx.combat.use, vec.cell)
+        bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
+        res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+        res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
+        genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
+        if (length(genes.diff) < (topN)) {
+            res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+            genes.diff <- row.names(res.limma.MCA)[1:(topN)]
+        }
+        if (length(genes.diff) > (3*topN)) {
+            res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+            genes.diff <- row.names(res.limma.MCA)[1:(3*topN)]
+        }
+    } else {
+        genes.diff <- use.genes
+    }
+    
+    return(genes.diff)
+    
+}
+
 .find_markers <- function(exp_ref_mat, seurat.out.group, 
                           type_ref = 'sum-counts', use.RUVseq = T, 
-                          base.topN = 50, percent.high.exp = 0.8) {
+                          base.topN = 50, percent.high.exp = 0.8, CPU = 6) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
@@ -468,57 +483,21 @@
     
     
     topN <- base.topN
-    list.cell.genes <- list()
-    for (i in 1:length(cell.ref)) {
-        cell <- cell.ref[i]
-        # print(cell)
-        vec.cell <- mtx.combat[, paste0('Ref.', cell)]
-        # vec.cell.high <- vec.cell[vec.cell > quantile(vec.cell, percent.high.exp)]
-        vec.ref <- exp_ref_mat[, cell]
-        vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
-        # high expression genes
-        # genes.high <- intersect(names(vec.cell.high), names(vec.ref.high))
-        genes.high <- names(vec.ref.high)
-        
-        # diff in reference
-        cells <- c(setdiff(cell.ref, cell), cell)
-        bool.cell <- cells
-        bool.cell[bool.cell != cell] <- '1'
-        bool.cell[bool.cell == cell] <- '2'
-        res.limma.ref <- .getDEgeneF(exp_ref_mat[genes.high, cells], bool.cell)
-        res.limma.ref <- res.limma.ref[res.limma.ref$logFC > 0,]
-        genes.ref <- row.names(res.limma.ref[(res.limma.ref$P.Value < 0.1),])
-        if (length(genes.ref) < (3*topN)) {
-            res.limma.ref <- res.limma.ref[order(res.limma.ref$P.Value),]
-            genes.ref <- row.names(res.limma.ref)[1:(3*topN)]
-        }
-        use.genes <- intersect(genes.high, genes.ref)
-
-        # diff in Atlas
-        if (length(use.genes) > topN) {
-            mtx.limma <- cbind(mtx.combat.use, vec.cell)
-            bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
-            res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
-            res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
-            genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
-            if (length(genes.diff) < (topN)) {
-                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
-                genes.diff <- row.names(res.limma.MCA)[1:(topN)]
-            }
-            if (length(genes.diff) > (3*topN)) {
-                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
-                genes.diff <- row.names(res.limma.MCA)[1:(3*topN)]
-            }
-        } else {
-            genes.diff <- use.genes
-        }
-        
-        list.cell.genes[[cell]] <- genes.diff
-
-    }
+    cl = makeCluster(CPU, outfile = '')
+    clusterExport(cl, '.getDEgeneF')
+    RUN <- parLapply(
+        cl = cl,
+        1:length(cell.ref),
+        .find_markers_cell,
+        cell.ref = cell.ref, mtx.combat = mtx.combat, 
+        exp_ref_mat = exp_ref_mat, percent.high.exp = percent.high.exp,
+        mtx.combat.use = mtx.combat.use, topN = topN
+    )
+    stopCluster(cl)
+    names(RUN) <- cell.ref
     
     out <- list()
-    out[['list.cell.genes']] <- list.cell.genes
+    out[['list.cell.genes']] <- RUN
     out[['exp_ref_mat']] <- exp_ref_mat
     return(out)
     
@@ -632,7 +611,7 @@
     seurat.Ref.sum <- NormalizeData(seurat.Ref.sum, verbose = F)
     LocalRef.sum <- as.matrix(seurat.Ref.sum@assays$RNA@data)
     
-    ###### regard a outgroup (e.g. MCA/HCA) as reference of DEG
+    ###### regard a outgroup (e.g. MCA/HCL) as reference of DEG
     seurat.MCA <- seurat.out.group
     fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
     
@@ -746,8 +725,8 @@
             FindVariableFeatures(sub.seurat, selection.method = "disp",
                                  nfeatures = 1000, verbose = F)
         # print('1')
-        sub.seurat <- ScaleData(sub.seurat, 
-                                features = VariableFeatures(sub.seurat), 
+        sub.seurat <- ScaleData(sub.seurat,
+                                features = VariableFeatures(sub.seurat),
                                 verbose = F)
         # print(head(sub.seurat@assays$RNA@var.features))
         # print('2')
@@ -797,20 +776,17 @@
         return(sub.out)
         
     }
-    # num.cpu <- floor(length(cluster.ids) / 10)
+    
     
     # split dataset
     cl.input <- list()
-    cl <- makeCluster(CPU, outfile = '')
+    cl <- makeCluster(CPU, outfile = '', type = 'FORK')
     clusterExport(cl, '.generate_ref')
     clusterEvalQ(cl, library(Seurat))
     out.par <- parLapply(
         cl = cl,
         cluster.ids,
         .merge.one.cluster
-        # exp_sc_mat = exp_sc_mat,
-        # df.cluster = df.cluster,
-        # combine.num.cell = combine.num.cell
     )
     stopCluster(cl)
     
@@ -1093,9 +1069,8 @@
 scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL, 
                     type_ref = 'sc-counts', single_round = F, 
                     identify_unassigned = T, atlas = 'MCA', use.RUVseq = T, 
-                    percent.high.exp = 0.8, 
-                    cluster.num.pc = 50, cluster.resolution = 1, 
-                    opt.speed = T, combine.num.cell = 10,
+                    cluster.num.pc = 50, cluster.resolution = 3, 
+                    opt.speed = T, combine.num.cell = NULL, min_cell = NULL, 
                     method1 = 'kendall', method2 = 'multinomial', 
                     corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
                     GMM.num_component = NULL, GMM.neg_cutoff = NULL, 
@@ -1109,10 +1084,27 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     cutoff.1 = 'default'
     cutoff.2 = 'default'
     mod = ''
-    min_cell = 1
     simple.output = T
     if (is.null(GMM.neg_cutoff)) {
         GMM.neg_cutoff <- GMM.floor_cutoff
+    }
+    num.cell <- dim(exp_sc_mat)[2]
+    if (is.null(opt.speed)) {
+        if (num.cell > 5000) {
+            opt.speed <- TRUE
+        } else {
+            opt.speed <- FALSE
+        }
+    }
+    if (opt.speed) {
+        if (is.null(combine.num.cell)) {
+            combine.num.cell <- ceiling(num.cell/2000)
+        }
+        if (is.null(min_cell)) {
+            min_cell <- combine.num.cell * 2
+        }
+    } else {
+        min_cell <- 1
     }
     
     time1 <- Sys.time()
@@ -1139,6 +1131,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     
     if (identify_unassigned) {
         # find markers of cell types in reference
+        topN = 50
+        percent.high.exp = 0.8
         print('Find marker genes of cell types in reference:')
         suppressMessages(
             out.markers <-
