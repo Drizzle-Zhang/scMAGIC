@@ -78,7 +78,7 @@
 }
 
 
-.get_log_p_sc_given_ref <- function(exp_sc_mat, exp_ref_mat, CPU = 4,
+.get_log_p_sc_given_ref <- function(exp_sc_mat, exp_ref_mat, num_threads = 4,
                                     print_step = 100, gene_overlap = FALSE,
                                     verbose = FALSE) {
     library(parallel, verbose = F)
@@ -108,7 +108,7 @@
     colname_ref <- colnames(exp_ref_mat)
 
     #Step 2. calculate prob
-    cl = makeCluster(CPU, outfile = '')
+    cl = makeCluster(num_threads, outfile = '')
     RUN <- parLapply(
         cl = cl,
         1:length(exp_sc_mat[1,]),
@@ -120,7 +120,7 @@
         print_step = print_step
     )
     stopCluster(cl)
-    #RUN = mclapply(1:length(colname_sc), SINGLE, mc.cores=CPU)
+    #RUN = mclapply(1:length(colname_sc), SINGLE, mc.cores=num_threads)
     LOG_P_SC_GIVEN_REF = c()
     for (log_p_sc_given_ref_list in RUN) {
         LOG_P_SC_GIVEN_REF <-
@@ -171,7 +171,7 @@
 }
 
 
-.get_cor <- function(exp_sc_mat, exp_ref_mat, method = 'kendall', CPU = 4,
+.get_cor <- function(exp_sc_mat, exp_ref_mat, method = 'kendall', num_threads = 4,
                       print_step = 100, gene_overlap = FALSE, verbose = FALSE){
     #method = "pearson", "kendall", "spearman"
     #exp_sc_mat: single-cell gene expression matrix; row is gene; col is sample; should have row name and col name
@@ -204,7 +204,7 @@
     #######################################
 
     #Step 2. calculate corr
-    cl <- makeCluster(CPU, outfile = '')
+    cl <- makeCluster(num_threads, outfile = '')
     clusterEvalQ(cl, library(pcaPP))
     RUN <- parLapply(
         cl = cl,
@@ -218,7 +218,7 @@
         print_step = print_step
     )
     stopCluster(cl)
-    #RUN = mclapply(1:length(colname_sc), SINGLE, mc.cores=CPU)
+    #RUN = mclapply(1:length(colname_sc), SINGLE, mc.cores=num_threads)
     LOG_P_SC_GIVEN_REF <- c()
     for (log_p_sc_given_ref_list in RUN) {
         LOG_P_SC_GIVEN_REF <-
@@ -331,42 +331,7 @@
 }
 
 
-.getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
-                        block = NULL, p_adj = "fdr", fpkm = T) {
-    # limma function
-    if (is.null(esetm)) {
-        cat(
-            "esetm: gene expression matrix",
-            "group: factor: \"c\"/\"d\"",
-            "pair: TRUE/FALSE*",
-            "block: e.g.1 2 2 1 if paired; blank if not",
-            "p_adj: p.adjust, fdr* ",
-            "fpkm: TRUE/FALSE*",
-            sep = "\n"
-        )
-    } else{
-        library(limma, verbose = F)
-        if (pair) {
-            design <- model.matrix( ~ block + group)
-        } else{
-            design <- model.matrix( ~ group)
-        }
-        suppressWarnings(fit <- lmFit(esetm, design))
-        if (fpkm) {
-            suppressWarnings(fit <- eBayes(fit, trend = T, robust = T))
-        } else{
-            suppressWarnings(fit <- eBayes(fit))
-        }
-        x <- topTable(fit, number = nrow(esetm), adjust.method = p_adj,
-                     coef = "group2")
-        x <- x[!is.na(row.names(x)), ]
-        x <- x[!duplicated(row.names(x)), ]
-        return(x)
-    }
-}
-
-
-.imoprt_outgroup <- function(out.group = 'MCA', normalization = T, use.RUVseq = T) {
+.imoprt_outgroup <- function(out.group = 'MCA', normalization = T, use_RUVseq = T) {
     if (class(out.group)[1] %in% c("data.frame", "matrix")) {
         df.out.group <- out.group
     } else {
@@ -399,7 +364,7 @@
         seurat.out.group <-
             NormalizeData(seurat.out.group, normalization.method = "LogNormalize",
                           scale.factor = 1e6, verbose = F)
-        if (use.RUVseq) {
+        if (use_RUVseq) {
             # get stably expression genes
             seurat.out.group <- FindVariableFeatures(
                 seurat.out.group, selection.method = "mvp",
@@ -426,6 +391,41 @@
     # high expression genes
     # genes.high <- intersect(names(vec.cell.high), names(vec.ref.high))
     genes.high <- names(vec.ref.high)
+
+    # function
+    .getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
+                            block = NULL, p_adj = "fdr", fpkm = T) {
+        # limma function
+        if (is.null(esetm)) {
+            cat(
+                "esetm: gene expression matrix",
+                "group: factor: \"c\"/\"d\"",
+                "pair: TRUE/FALSE*",
+                "block: e.g.1 2 2 1 if paired; blank if not",
+                "p_adj: p.adjust, fdr* ",
+                "fpkm: TRUE/FALSE*",
+                sep = "\n"
+            )
+        } else{
+            library(limma, verbose = F)
+            if (pair) {
+                design <- model.matrix( ~ block + group)
+            } else{
+                design <- model.matrix( ~ group)
+            }
+            suppressWarnings(fit <- lmFit(esetm, design))
+            if (fpkm) {
+                suppressWarnings(fit <- eBayes(fit, trend = T, robust = T))
+            } else{
+                suppressWarnings(fit <- eBayes(fit))
+            }
+            x <- topTable(fit, number = nrow(esetm), adjust.method = p_adj,
+                          coef = "group2")
+            x <- x[!is.na(row.names(x)), ]
+            x <- x[!duplicated(row.names(x)), ]
+            return(x)
+        }
+    }
 
     # diff in reference
     cells <- c(setdiff(cell.ref, cell), cell)
@@ -465,8 +465,8 @@
 }
 
 .find_markers <- function(exp_ref_mat, seurat.out.group,
-                          type_ref = 'sum-counts', use.RUVseq = T,
-                          base.topN = 50, percent.high.exp = 0.8, CPU = 6) {
+                          type_ref = 'sum-counts', use_RUVseq = T,
+                          base.topN = 50, percent.high.exp = 0.8, num_threads = 6) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
@@ -496,7 +496,7 @@
     out.overlap <- .get_overlap_genes(fpm.MCA, exp_ref_mat)
     fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
     exp_ref_mat <- as.matrix(out.overlap$exp_ref_mat)
-    if (use.RUVseq) {
+    if (use_RUVseq) {
         gene_overlap <- out.overlap$gene_over
         SEG.MCA <- VariableFeatures(seurat.MCA)
         gene.constant <- intersect(gene_overlap, SEG.MCA)
@@ -510,7 +510,7 @@
     mtx.in <- cbind(fpm.MCA, exp_ref_mat)
     names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
     dimnames(mtx.in)[[2]] <- names.mix
-    if (use.RUVseq) {
+    if (use_RUVseq) {
         library(RUVSeq, verbose = F)
         seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=1, isLog = T)
         mtx.combat <- seqRUVg$normalizedCounts
@@ -521,8 +521,8 @@
 
 
     topN <- base.topN
-    cl = makeCluster(CPU, outfile = '')
-    clusterExport(cl, '.getDEgeneF')
+    cl = makeCluster(num_threads, outfile = '')
+    # clusterExport(cl, '.getDEgeneF')
     RUN <- parLapply(
         cl = cl,
         1:length(cell.ref),
@@ -553,6 +553,41 @@
     vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
     # high expression genes
     genes.high <- names(vec.ref.high)
+
+    # function
+    .getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
+                            block = NULL, p_adj = "fdr", fpkm = T) {
+        # limma function
+        if (is.null(esetm)) {
+            cat(
+                "esetm: gene expression matrix",
+                "group: factor: \"c\"/\"d\"",
+                "pair: TRUE/FALSE*",
+                "block: e.g.1 2 2 1 if paired; blank if not",
+                "p_adj: p.adjust, fdr* ",
+                "fpkm: TRUE/FALSE*",
+                sep = "\n"
+            )
+        } else{
+            library(limma, verbose = F)
+            if (pair) {
+                design <- model.matrix( ~ block + group)
+            } else{
+                design <- model.matrix( ~ group)
+            }
+            suppressWarnings(fit <- lmFit(esetm, design))
+            if (fpkm) {
+                suppressWarnings(fit <- eBayes(fit, trend = T, robust = T))
+            } else{
+                suppressWarnings(fit <- eBayes(fit))
+            }
+            x <- topTable(fit, number = nrow(esetm), adjust.method = p_adj,
+                          coef = "group2")
+            x <- x[!is.na(row.names(x)), ]
+            x <- x[!duplicated(row.names(x)), ]
+            return(x)
+        }
+    }
 
     # diff in local reference and negative reference
     seurat.Ref.cell <- CreateSeuratObject(counts = select.exp, project = "Ref")
@@ -633,7 +668,7 @@
 
 .find_markers_sc <- function(select.exp, vec.tag1, LocalRef,
                              seurat.out.group, list.localNeg,
-                             use.RUVseq = T, CPU = 6,
+                             use_RUVseq = T, num_threads = 6,
                              base.topN = 50, percent.high.exp = 0.80) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
@@ -658,7 +693,7 @@
     out.overlap <- .get_overlap_genes(fpm.MCA, LocalRef.sum)
     fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
     LocalRef.sum <- as.matrix(out.overlap$exp_ref_mat)
-    if (use.RUVseq) {
+    if (use_RUVseq) {
         gene_overlap <- out.overlap$gene_over
         SEG.MCA <- VariableFeatures(seurat.MCA)
         gene.constant <- intersect(gene_overlap, SEG.MCA)
@@ -672,7 +707,7 @@
     mtx.in <- cbind(fpm.MCA, LocalRef.sum)
     names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
     dimnames(mtx.in)[[2]] <- names.mix
-    if (use.RUVseq) {
+    if (use_RUVseq) {
         library(RUVSeq, verbose = F)
         seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=3, isLog = T)
         mtx.combat <- seqRUVg$normalizedCounts
@@ -683,8 +718,8 @@
 
 
     topN <- base.topN
-    cl = makeCluster(CPU, outfile = '')
-    clusterExport(cl, '.getDEgeneF')
+    cl = makeCluster(num_threads, outfile = '')
+    # clusterExport(cl, '.getDEgeneF')
     RUN <- parLapply(
         cl = cl,
         1:length(cell.ref),
@@ -705,7 +740,7 @@
 }
 
 
-.cluster_sc <- function(exp_sc_mat, cluster.num.pc = 75, cluster.resolution = 3) {
+.cluster_sc <- function(exp_sc_mat, cluster_num_pc = 75, cluster_resolution = 3) {
     # cluster
     library(Seurat, verbose = F)
     # data preparing
@@ -720,14 +755,14 @@
     seurat.unlabeled <- ScaleData(seurat.unlabeled, verbose = F)
 
     # PCA
-    seurat.unlabeled <- RunPCA(seurat.unlabeled, npcs = cluster.num.pc, verbose = F)
+    seurat.unlabeled <- RunPCA(seurat.unlabeled, npcs = cluster_num_pc, verbose = F)
 
     # cluster
     seurat.unlabeled <-
-        FindNeighbors(seurat.unlabeled, reduction = "pca", dims = 1:cluster.num.pc,
+        FindNeighbors(seurat.unlabeled, reduction = "pca", dims = 1:cluster_num_pc,
                       nn.eps = 0.5, verbose = F)
     seurat.unlabeled <-
-        FindClusters(seurat.unlabeled, resolution = cluster.resolution,
+        FindClusters(seurat.unlabeled, resolution = cluster_resolution,
                      n.start = 10, n.iter = 100, verbose = F)
 
     out.cluster <-
@@ -741,12 +776,12 @@
 }
 
 
-.cluster_increase_speed <- function(exp_sc_mat, df.cluster, combine.num.cell = 5, CPU = 5) {
+.cluster_increase_speed <- function(exp_sc_mat, df.cluster, combine_num_cell = 5, num_threads = 5) {
     library(parallel, verbose = F)
     sc.genes <- row.names(exp_sc_mat)
     df.cluster <- as.matrix(df.cluster)
     cluster.ids <- as.character(unique(df.cluster))
-    combine.num.cell <- combine.num.cell
+    combine_num_cell <- combine_num_cell
 
     .merge.one.cluster <- function(cluster.id) {
         # merge cells in one cluster
@@ -777,7 +812,7 @@
         sub.seurat <- RunPCA(sub.seurat, npcs = min(10, (num.cell-2)), verbose = F)
         sub.pca <- sub.seurat@reductions$pca@cell.embeddings
 
-        num.clusters <- ceiling(num.cell / combine.num.cell)
+        num.clusters <- ceiling(num.cell / combine_num_cell)
         if (num.clusters < 2) {
             sub.dict <- data.frame(
                 cell.id = dimnames(sub.pca)[[1]],
@@ -797,6 +832,49 @@
         sub.dict$cluster.merge.id <-
             paste(sub.dict$cluster.level1, sub.dict$cluster.level2, sep = '-')
         row.names(sub.dict) <- sub.dict$cell.id
+
+        # function
+        .generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
+                                  refnames = FALSE ){
+            M <- M
+            # print(M)
+            min_cell <- min_cell
+            refnames <- refnames
+            exp_sc_mat <- exp_sc_mat
+            TAG <- TAG
+            NewRef <- c()
+            TAG[, 2] <- as.character(TAG[, 2])
+            if (refnames == FALSE) {
+                refnames <- names(table(TAG[, 2]))
+            }
+            else{
+                refnames <- refnames
+            }
+            outnames <- c()
+            for (one in refnames) {
+                this_col <- which(TAG[, 2] == one)
+                if (length(this_col) >= min_cell) {
+                    outnames <- c(outnames, one)
+                    if (length(this_col) > 1) {
+                        if (M == 'SUM') {
+                            this_new_ref <- apply(exp_sc_mat[, this_col], 1, sum)
+                        } else{
+                            this_new_ref <- apply(exp_sc_mat[, this_col], 1, mean)
+                        }
+                    }
+                    else{
+                        this_new_ref <- exp_sc_mat[, this_col]
+                    }
+                    NewRef <- cbind(NewRef, this_new_ref)
+                }
+            }
+            if (is.null(dim(NewRef))) {
+                return(NULL)
+            }
+            rownames(NewRef) <- rownames(exp_sc_mat)
+            colnames(NewRef) <- outnames
+            return(NewRef)
+        }
 
         # merge expression profile
         tag.in <- sub.dict[, c('cell.id', 'cluster.merge.id')]
@@ -818,8 +896,8 @@
 
     # split dataset
     cl.input <- list()
-    cl <- makeCluster(CPU, outfile = '', type = 'FORK')
-    clusterExport(cl, '.generate_ref')
+    cl <- makeCluster(num_threads, outfile = '', type = 'FORK')
+    # clusterExport(cl, '.generate_ref')
     clusterEvalQ(cl, library(Seurat))
     out.par <- parLapply(
         cl = cl,
@@ -914,7 +992,7 @@
 }
 
 
-.confirm_label <- function(exp_sc_mat, list.cell.genes, scRef.tag, CPU = 10) {
+.confirm_label <- function(exp_sc_mat, list.cell.genes, scRef.tag, num_threads = 10) {
     library(parallel, verbose = F)
     # confirm label
     exp_sc_mat <- as.matrix(exp_sc_mat)
@@ -923,7 +1001,7 @@
     df.tag$cell_id <- NULL
     names(df.tag) <- 'scRef.tag'
 
-    cl = makeCluster(CPU, outfile = '')
+    cl = makeCluster(num_threads, outfile = '')
     RUN <- parLapply(
         cl = cl,
         row.names(df.tag),
@@ -1068,14 +1146,14 @@
 
 scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     type_ref = 'sc-counts', single_round = F,
-                    identify_unassigned = T, atlas = 'MCA', use.RUVseq = T,
-                    cluster.num.pc = 50, cluster.resolution = 3,
-                    opt.speed = T, combine.num.cell = NULL, min_cell = NULL,
+                    identify_unassigned = T, atlas = 'MCA', use_RUVseq = T,
+                    cluster_num_pc = 50, cluster_resolution = 3,
+                    opt_speed = NULL, combine_num_cell = NULL, min_cell = NULL,
                     method1 = 'kendall', method2 = 'multinomial',
                     corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
                     GMM.num_component = NULL, GMM.neg_cutoff = NULL,
                     GMM.floor_cutoff = 5, GMM.ceiling_cutoff = 30,
-                    threshold.recall = 0.2, CPU = 4) {
+                    threshold_recall = 0.2, num_threads = 4, simple_output = T) {
     library(parallel, verbose = F)
     # check parameters
     if (!type_ref %in% c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm')) {
@@ -1084,25 +1162,25 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     cutoff.1 = 'default'
     cutoff.2 = 'default'
     mod = ''
-    simple.output = T
+    # simple_output = T
     out.group = atlas
     if (is.null(GMM.neg_cutoff)) {
         GMM.neg_cutoff <- GMM.floor_cutoff
     }
     num.cell <- dim(exp_sc_mat)[2]
-    if (is.null(opt.speed)) {
+    if (is.null(opt_speed)) {
         if (num.cell > 5000) {
-            opt.speed <- TRUE
+            opt_speed <- TRUE
         } else {
-            opt.speed <- FALSE
+            opt_speed <- FALSE
         }
     }
-    if (opt.speed) {
-        if (is.null(combine.num.cell)) {
-            combine.num.cell <- ceiling(num.cell/2000)
+    if (opt_speed) {
+        if (is.null(combine_num_cell)) {
+            combine_num_cell <- ceiling(num.cell/2000)
         }
         if (is.null(min_cell)) {
-            min_cell <- combine.num.cell * 2
+            min_cell <- combine_num_cell * 2
         }
     } else {
         min_cell <- 1
@@ -1128,7 +1206,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     print('Number of overlapped genes:')
     print(nrow(exp_sc_mat))
 
-    seurat.out.group <- .imoprt_outgroup(out.group = out.group, use.RUVseq = use.RUVseq)
+    seurat.out.group <- .imoprt_outgroup(out.group = out.group, use_RUVseq = use_RUVseq)
 
     if (identify_unassigned) {
         # find markers of cell types in reference
@@ -1141,8 +1219,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     exp_ref_mat,
                     seurat.out.group,
                     type_ref = 'sum-counts',
-                    use.RUVseq = use.RUVseq,
-                    percent.high.exp = percent.high.exp
+                    use_RUVseq = use_RUVseq,
+                    percent.high.exp = percent.high.exp, num_threads = num_threads
                 ))
         list.cell.genes <- out.markers[['list.cell.genes']]
         genes.ref <- dimnames(out.markers[['exp_ref_mat']])[[1]]
@@ -1158,19 +1236,19 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         print('Start clustering :')
         df.cluster <-
             .cluster_sc(exp_sc_mat,
-                        cluster.num.pc = cluster.num.pc,
-                        cluster.resolution = cluster.resolution)
+                        cluster_num_pc = cluster_num_pc,
+                        cluster_resolution = cluster_resolution)
         print('Clustering completed!')
 
         # speed calculation
-        if (opt.speed) {
+        if (opt_speed) {
             print('Speed calculation by clustering:')
             out.merge <-
                 .cluster_increase_speed(exp_sc_mat, df.cluster,
-                                        combine.num.cell = combine.num.cell, CPU = CPU)
+                                        combine_num_cell = combine_num_cell, num_threads = num_threads)
             df.dict <- out.merge$df.dict
             df.exp.merge <- out.merge$df.exp.merge
-            # min_cell <- ceiling(min_cell / combine.num.cell)
+            # min_cell <- ceiling(min_cell / combine_num_cell)
         } else {
             df.exp.merge <- exp_sc_mat
         }
@@ -1195,11 +1273,11 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
     if (method1 != 'multinomial') {
         suppressMessages(
-            out1 <- .get_cor(similarity.in, ref.in, method = method1, CPU = CPU)
+            out1 <- .get_cor(similarity.in, ref.in, method = method1, num_threads = num_threads)
         )
     } else {
         suppressMessages(
-            out1 <- .get_log_p_sc_given_ref(similarity.in, ref.in, CPU = CPU)
+            out1 <- .get_log_p_sc_given_ref(similarity.in, ref.in, num_threads = num_threads)
         )
     }
 
@@ -1210,7 +1288,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     if (identify_unassigned) {
         print('Build local reference')
         suppressMessages(
-            df.tags1 <- .confirm_label(df.exp.merge, list.cell.genes, tag1, CPU = CPU)
+            df.tags1 <- .confirm_label(df.exp.merge, list.cell.genes, tag1, num_threads = num_threads)
         )
         cell_ids <- colnames(df.exp.merge)
         df.tags1 <- df.tags1[cell_ids, ]
@@ -1237,7 +1315,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                                           (df.tags$log10Pval < sub.cutoff)] <- 'Unassigned'
                 }
 
-                if (opt.speed) {
+                if (opt_speed) {
                     df.cluster <- df.dict[, c("cluster.merge.id", "cluster.level1")]
                     df.cluster <- unique(df.cluster)
                     df.cluster <- data.frame(cluster.id = df.cluster$cluster.level1,
@@ -1248,7 +1326,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                 row.names(df.tags) <- df.tags$Row.names
                 df.tags$Row.names <- NULL
 
-                if (opt.speed) {
+                if (opt_speed) {
                     df.tags$cluster.merge.id <- row.names(df.tags)
                     df.tags.merge <- merge(df.tags, df.dict[, c('cluster.merge.id', 'cell.id')],
                                            by = 'cluster.merge.id')
@@ -1270,8 +1348,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     percent.main.cell <- table.tag[1] / dim(sub.tag.cluster)[1]
                     num.Unassigned <- sum(sub.tag.cluster$scRef.tag.pre.recall == 'Unassigned')
                     percent.Unassigned <- num.Unassigned / nrow(sub.tag.cluster)
-                    if (percent.Unassigned < threshold.recall) {
-                        if (percent.main.cell > (1- threshold.recall - 0.05)) {
+                    if (percent.Unassigned < threshold_recall) {
+                        if (percent.main.cell > (1- threshold_recall - 0.05)) {
                             df.tags[(df.tags$cluster.id == cluster.id) &
                                         (df.tags$scRef.tag == 'Unassigned'), 'scRef.tag'] <-
                                 rep(main.cell, num.Unassigned)
@@ -1305,7 +1383,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                 output$out1 <- out1
                 output$combine.out <- df.tags
                 output$info.cluster <- info.cluster
-                if (opt.speed) {
+                if (opt_speed) {
                     output$dict.cluster <- df.dict
                 }
                 output$ref.markers <- list.cell.genes
@@ -1389,9 +1467,9 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                 .find_markers_sc(
                     select.exp, vec.tag1, LocalRef,
                     seurat.out.group, list.localNeg,
-                    use.RUVseq = use.RUVseq,
+                    use_RUVseq = use_RUVseq,
                     percent.high.exp = percent.high.exp,
-                    CPU = CPU
+                    num_threads = num_threads
                 )
         )
         local.cell.genes <- out.markers[['list.cell.genes']]
@@ -1409,11 +1487,11 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
     if (method2 != 'multinomial') {
         suppressMessages(
-            out2 <- .get_cor(similarity.in, ref.in, method = method2, CPU = CPU)
+            out2 <- .get_cor(similarity.in, ref.in, method = method2, num_threads = num_threads)
         )
     } else {
         suppressMessages(
-            out2 <- .get_log_p_sc_given_ref(similarity.in, ref.in, CPU = CPU)
+            out2 <- .get_log_p_sc_given_ref(similarity.in, ref.in, num_threads = num_threads)
         )
     }
     tag2 <- .get_tag_max(out2)
@@ -1421,7 +1499,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 
     if (identify_unassigned) {
         suppressMessages(
-            df.tags2 <- .confirm_label(df.exp.merge, local.cell.genes, tag2, CPU = CPU)
+            df.tags2 <- .confirm_label(df.exp.merge, local.cell.genes, tag2, num_threads = num_threads)
         )
         cell_ids <- colnames(df.exp.merge)
         df.tags2 <- df.tags2[cell_ids, ]
@@ -1443,7 +1521,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 
         df.tags$log10Pval <- -log10(df.tags$pvalue)
 
-        if (opt.speed) {
+        if (opt_speed) {
             df.cluster <- df.dict[, c("cluster.merge.id", "cluster.level1")]
             df.cluster <- unique(df.cluster)
             df.cluster <- data.frame(cluster.id = df.cluster$cluster.level1,
@@ -1482,7 +1560,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         row.names(df.tags) <- df.tags$Row.names
         df.tags$Row.names <- NULL
 
-        if (opt.speed) {
+        if (opt_speed) {
             df.tags$cluster.merge.id <- row.names(df.tags)
             df.tags.merge <- merge(df.tags, df.dict[, c('cluster.merge.id', 'cell.id')],
                                    by = 'cluster.merge.id')
@@ -1513,8 +1591,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             percent.other <- num.other / num.cell
             cell.other <- paste(setdiff(names(table.tag), c(main.cell, 'Unassigned')),
                                 collapse = '|')
-            if (percent.Unassigned < threshold.recall) {
-                if (percent.main.cell > (1 - threshold.recall - 0.2)) {
+            if (percent.Unassigned < threshold_recall) {
+                if (percent.main.cell > (1 - threshold_recall - 0.2)) {
                     df.tags[(df.tags$cluster.id == cluster.id) &
                                 (df.tags$scRef.tag.pre.recall == 'Unassigned'), 'scRef.tag'] <-
                         rep(main.cell, num.Unassigned)
@@ -1558,7 +1636,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     #####
     time2 <- Sys.time()
     time.scMAGIC <- difftime(time2, time1, units = 'secs')
-    if (simple.output) {
+    if (simple_output) {
         output <- df.combine
     } else {
         output <- list()
@@ -1571,7 +1649,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             output$pvalue2 <- df.tags2
             output$combine.out <- df.tags
             output$info.cluster <- info.cluster
-            if (opt.speed) {
+            if (opt_speed) {
                 output$dict.cluster <- df.dict
             }
             output$cutoff.1 <- df.cutoff.1
@@ -1595,7 +1673,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 }
 
 
-annotate.UnassignedCell <- function(result.scref, exp_sc_mat, atlas = 'MCA', CPU = 4) {
+annotate.UnassignedCell <- function(result.scref, exp_sc_mat, atlas = 'MCA', num_threads = 4) {
     final.out <- result.scref$final.out
     cell_id.unassigned <- row.names(final.out[final.out$scRef.tag == 'Unassigned',])
     exp.unassigned <- exp_sc_mat[, cell_id.unassigned]
@@ -1605,10 +1683,10 @@ annotate.UnassignedCell <- function(result.scref, exp_sc_mat, atlas = 'MCA', CPU
     df.atlas <- .imoprt_outgroup(atlas, normalization = F)
 
     result.unassign <- SCREF(exp.unassigned, df.atlas,
-                          type_ref = 'sum-counts', use.RUVseq = F,
+                          type_ref = 'sum-counts', use_RUVseq = F,
                           corr_use_HVGene1 = 2000, corr_use_HVGene2 = NULL,
-                          opt.speed = F,
-                          min_cell = 5, CPU = CPU)
+                          opt_speed = F,
+                          min_cell = 5, num_threads = num_threads)
     pred.unassign <- result.unassign$final.out
     result.scref$pred.unassign <- pred.unassign
     pred.new <- rbind(final.out[final.out$scRef.tag != 'Unassigned',], pred.unassign)

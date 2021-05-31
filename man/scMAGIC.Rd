@@ -33,12 +33,12 @@ scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
   \item{single_round}{Whether to use single round annotation strategy, by default, scMAGIC use two-round annotation strategy.}
   \item{identify_unassigned}{Whether to label some cells as "Unassigned", by default, it is TRUE. If you think reference covers all cell types in query data, choose FALSE.}
   \item{atlas}{If reference is from mouse, it is 'MCA'; if reference is from human, it is 'HCA'.}
-  \item{use.RUVseq}{Whether to use 'RUVSeq' to remove the batch effect between reference and atlas, by default, choose TRUE.}
-  \item{percent.high.exp}{Choose genes whose expression values are higher than 'percent.high.exp' of genes as "high expression genes".}
-  \item{cluster.num.pc}{Number of PCs used in clustering.}
-  \item{cluster.resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
-  \item{opt.speed}{Whether to speed calculation by merge the expression profiles of similar cells.}
-  \item{combine.num.cell}{Mean combined cell number in speeding calculation.}
+  \item{use_RUVseq}{Whether to use 'RUVSeq' to remove the batch effect between reference and atlas, by default, choose TRUE.}
+%%  \item{percent.high.exp}{Choose genes whose expression values are higher than 'percent.high.exp' of genes as "high expression genes".}
+  \item{cluster_num_pc}{Number of PCs used in clustering.}
+  \item{cluster_resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
+  \item{opt_speed}{Whether to speed calculation by merge the expression profiles of similar cells.}
+  \item{combine_num_cell}{Mean combined cell number in speeding calculation.}
   \item{method1}{The methods of similarity calculation in first-round annotation, by default, choose 'kendall'.}
   \item{method2}{The methods of similarity calculation in second-round annotation, by default, choose 'multinomial'.}
   \item{corr_use_HVGene1}{Number of genes to select as top variable genes in similarity calculation of first-round annotation}
@@ -47,8 +47,9 @@ scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
   \item{GMM.floor_cutoff}{If confidence score is lower than 'GMM.floor_cutoff', we consider the corresponding label incorrect.}
   \item{GMM.ceiling_cutoff}{If confidence score is higher than 'GMM.ceiling_cutoff', we consider the corresponding label correct.}
   \item{GMM.neg_cutoff}{If confidence scores of some cells are lower than 'GMM.neg_cutoff', the cells would be regarded as negative control.}
-  \item{threshold.recall}{If the proportion of 'Unassigned' cells is lower than 'threshold.recall' in a certain cluster, labels of the cells would be converted to main cell type in the cluster.}
-  \item{CPU}{Number of CPU used in calculation.}
+  \item{threshold_recall}{If the proportion of 'Unassigned' cells is lower than 'threshold.recall' in a certain cluster, labels of the cells would be converted to main cell type in the cluster.}
+  \item{num_threads}{Number of CPU used in calculation.}
+  \item{simple_output}{Whether to output intermediate results.}
 }
 \details{
 %%  ~~ If necessary, more details than the description above ~~
