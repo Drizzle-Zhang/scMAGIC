@@ -595,10 +595,10 @@
     seurat.Ref.cell@meta.data$original.label <- vec.tag1
     markers <- FindMarkers(seurat.Ref.cell, ident.1 = cell, group.by = 'original.label',
                            only.pos = T, features = genes.high, min.cells.group = 1,
-                           min.pct = 0.2, min.diff.pct = 0.1,
-                           logfc.threshold = 0.3, verbose = F)
+                           min.pct = 0.3, min.diff.pct = 0.1,
+                           logfc.threshold = 0.5, verbose = F)
     # markers$p_val_fdr <- p.adjust(markers$p_val, method = 'fdr')
-    genes.ref <- row.names(markers[(markers$p_val_adj < 0.05),])
+    genes.ref <- row.names(markers[(markers$p_val_adj < 0.01),])
     if (length(genes.ref) < (3*topN)) {
         markers <- markers[order(markers$p_val),]
         genes.ref <- row.names(markers)[1:(min(3*topN, nrow(markers)))]
@@ -623,10 +623,10 @@
         seurat.neg.cell@meta.data$original.label <- tag.in
         markers <- FindMarkers(seurat.neg.cell, ident.1 = cell, group.by = 'original.label',
                                only.pos = T, features = use.genes, min.cells.group = 1,
-                               min.pct = 0.2, min.diff.pct = 0.1,
-                               logfc.threshold = 0.3, verbose = F)
+                               min.pct = 0.3, min.diff.pct = 0.1,
+                               logfc.threshold = 0.5, verbose = F)
         # markers$p_val_fdr <- p.adjust(markers$p_val, method = 'fdr')
-        genes.neg <- row.names(markers[(markers$p_val_adj < 0.05),])
+        genes.neg <- row.names(markers[(markers$p_val_adj < 0.01),])
         # if (length(genes.ref) < (2*topN)) {
         #     markers <- markers[order(markers$p_val),]
         #     genes.ref <- row.names(markers)[1:(min(2*topN, nrow(markers)))]
@@ -648,7 +648,7 @@
         bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
         res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
         res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
-        genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.05),])
+        genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
         if (length(genes.diff) < (topN)) {
             res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
             genes.diff <- row.names(res.limma.MCA)[1:(topN)]
@@ -1177,7 +1177,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
     if (opt_speed) {
         if (is.null(combine_num_cell)) {
-            combine_num_cell <- ceiling(num.cell/2000)
+            combine_num_cell <- min(ceiling(num.cell/2000), 7)
         }
         if (is.null(min_cell)) {
             min_cell <- combine_num_cell * 2
@@ -1248,7 +1248,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                                         combine_num_cell = combine_num_cell, num_threads = num_threads)
             df.dict <- out.merge$df.dict
             df.exp.merge <- out.merge$df.exp.merge
-            # min_cell <- ceiling(min_cell / combine_num_cell)
+            min_cell <- ceiling(min_cell / combine_num_cell)
         } else {
             df.exp.merge <- exp_sc_mat
         }
@@ -1697,7 +1697,7 @@ annotate.UnassignedCell <- function(result.scref, exp_sc_mat, atlas = 'MCA', num
 }
 
 
-transform.HomoloGene <- function(exp_sc_mat, inTaxID = 9606, outTaxID = 10090) {
+transformHomoloGene <- function(exp_sc_mat, inTaxID = 9606, outTaxID = 10090) {
     library(homologene)
     genes.in <- rownames(exp_sc_mat)
     res.home <- homologene(genes.in, inTax = inTaxID, outTax = outTaxID)
