@@ -1177,7 +1177,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
     if (opt_speed) {
         if (is.null(combine_num_cell)) {
-            combine_num_cell <- min(ceiling(num.cell/2000), 7)
+            combine_num_cell <- min(ceiling(num.cell/2000), 8)
         }
         if (is.null(min_cell)) {
             min_cell <- combine_num_cell * 2
