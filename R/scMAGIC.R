@@ -434,7 +434,7 @@
     bool.cell[bool.cell == cell] <- '2'
     res.limma.ref <- .getDEgeneF(exp_ref_mat[genes.high, cells], bool.cell)
     res.limma.ref <- res.limma.ref[res.limma.ref$logFC > 0,]
-    genes.ref <- row.names(res.limma.ref[(res.limma.ref$P.Value < 0.1),])
+    genes.ref <- row.names(res.limma.ref[(res.limma.ref$P.Value < 0.05),])
     if (length(genes.ref) < (3*topN)) {
         res.limma.ref <- res.limma.ref[order(res.limma.ref$P.Value),]
         genes.ref <- row.names(res.limma.ref)[1:(3*topN)]
