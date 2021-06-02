@@ -1177,7 +1177,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
     if (opt_speed) {
         if (is.null(combine_num_cell)) {
-            combine_num_cell <- min(ceiling(num.cell/2000), 8)
+            combine_num_cell <- ceiling(num.cell/3000)
         }
         if (is.null(min_cell)) {
             min_cell <- combine_num_cell * 2
@@ -1505,7 +1505,6 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.tags2 <- df.tags2[cell_ids, ]
         gc()
 
-        print('Combine reference and local result:')
         # combine reference pval and local pval
         del.cells <- setdiff(colnames(exp_ref_mat), colnames(LocalRef))
         df.tags1$pvalue[df.tags1$scRef.tag %in% del.cells] <- 1
