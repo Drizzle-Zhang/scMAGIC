@@ -288,7 +288,7 @@
 }
 
 
-.generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
+generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
                           refnames = FALSE ){
     M <- M
     # print(M)
@@ -1192,7 +1192,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         print('Sum single cell counts matrix:')
         label.in <- data.frame(cell_id = colnames(exp_ref_mat),
                                tag = as.character(exp_ref_label))
-        exp_ref_mat.sum <- .generate_ref(exp_ref_mat, label.in, M = 'SUM')
+        exp_ref_mat.sum <- generate_ref(exp_ref_mat, label.in, M = 'SUM')
         exp_ref_mat <- exp_ref_mat.sum
         type_ref <- 'sum-counts'
     }
@@ -1426,7 +1426,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         }
         select.exp <- df.exp.merge[, cell_ids %in% select.barcode]
         select.tag1 <- tag1[tag1[, 'cell_id'] %in% select.barcode, ]
-        LocalRef <- .generate_ref(select.exp, select.tag1,  min_cell = min_cell)
+        LocalRef <- generate_ref(select.exp, select.tag1,  min_cell = min_cell)
         vec.tag1 <- select.tag1[, 'tag']
 
     } else {
@@ -1451,7 +1451,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             return(output)
 
         }
-        LocalRef <- .generate_ref(df.exp.merge, tag1, min_cell = min_cell)
+        LocalRef <- generate_ref(df.exp.merge, tag1, min_cell = min_cell)
     }
     print('Cell types in local reference:')
     print(dimnames(LocalRef)[[2]])
@@ -1668,30 +1668,6 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     print('Finish!')
 
     return(output)
-
-}
-
-
-annotate.UnassignedCell <- function(result.scref, exp_sc_mat, atlas = 'MCA', num_threads = 4) {
-    final.out <- result.scref$final.out
-    cell_id.unassigned <- row.names(final.out[final.out$scRef.tag == 'Unassigned',])
-    exp.unassigned <- exp_sc_mat[, cell_id.unassigned]
-
-    # read atlas
-    setwd('~/my_git/scRef')
-    df.atlas <- .imoprt_outgroup(atlas, normalization = F)
-
-    result.unassign <- SCREF(exp.unassigned, df.atlas,
-                          type_ref = 'sum-counts', use_RUVseq = F,
-                          corr_use_HVGene1 = 2000, corr_use_HVGene2 = NULL,
-                          opt_speed = F,
-                          min_cell = 5, num_threads = num_threads)
-    pred.unassign <- result.unassign$final.out
-    result.scref$pred.unassign <- pred.unassign
-    pred.new <- rbind(final.out[final.out$scRef.tag != 'Unassigned',], pred.unassign)
-    result.scref$pred.new <- pred.new
-
-    return(result.scref)
 
 }
 
