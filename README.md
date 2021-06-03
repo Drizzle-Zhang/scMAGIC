@@ -1,8 +1,4 @@
----
-typora-root-url: figures
----
-
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/Logo.png" style="zoom: 67%;" />
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/Logo.png" width="200">
 
 # scMAGIC
 
@@ -22,7 +18,7 @@ typora-root-url: figures
 
 scMAGIC (**S**ingle **C**ell classification based on **MA**ker **G**enes **I**dentification and expression profile **C**orrelation) is a novel single-cell classification tool using well-annotated bulk or single-cell RNA-seq data as the reference. The main idea of scMAGIC is to first identify the most likely cell type in the reference for a single cell based on expression profile correlation, and then verify its cell identity by using the corresponding marker genes of the reference cell type. Furthermore , scMAGIC conducts a second-round of reference-based classification by using target single cells with verified cell identity as the new reference to overcome the significant batch effects between the reference and the query data.
 
-![workflow](D:\scRef\github\figures\workflow.png)
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/workflow.png" width="800">
 
 ## Installation
 
@@ -109,7 +105,7 @@ DimPlot(Obj.seurat, reduction = "umap",
     labs(title = 'True labels') + theme(plot.title = element_text(hjust = 0.5))
 ```
 
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/TrueLabels.png" alt="TrueLabels" style="zoom: 33%;" />
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/TrueLabels.png" width="400">
 
 ```R
 DimPlot(Obj.seurat, reduction = "umap",
@@ -117,7 +113,7 @@ DimPlot(Obj.seurat, reduction = "umap",
     labs(title = 'Prediction labels') + theme(plot.title = element_text(hjust = 0.5))
 ```
 
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/PredLabels.png" alt="PredLabels" style="zoom:33%;" />
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/PredLabels.png" width="400">
 
 ### Ⅱ. Annotation of large dataset
 
@@ -170,7 +166,7 @@ pred.new <- pred.new[rownames(output.scMAGIC), 'scMAGIC.tag']
 
 Results of Ⅱ and Ⅲ is showed in three UMAP plots as follows: the left is cell type labels from Campbell et al; the middle is scMAGIC assignments using Tasic dataset as reference; the right is combination of reference-based annotation and atlas-based inference.
 
-![fig23](https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/fig23.png)
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/fig23.png" width="800">
 
 ### Ⅳ. Reference-free annotation
 
@@ -195,7 +191,7 @@ table(true.tags, pred.scMAGIC)
 
 Heatmap of reference-free annotation is showed as follows.
 
-![heatmap_MCA_Campbell_scMAGIC](https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC.png)
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC.png" width="300">
 
 ## Contact
 
