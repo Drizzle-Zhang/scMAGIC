@@ -109,7 +109,7 @@ DimPlot(Obj.seurat, reduction = "umap",
     labs(title = 'True labels') + theme(plot.title = element_text(hjust = 0.5))
 ```
 
-<img src="D:\scRef\github\figures\TrueLabels.png" alt="TrueLabels" style="zoom: 33%;" />
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/TrueLabels.png" alt="TrueLabels" style="zoom: 33%;" />
 
 ```R
 DimPlot(Obj.seurat, reduction = "umap",
@@ -117,7 +117,7 @@ DimPlot(Obj.seurat, reduction = "umap",
     labs(title = 'Prediction labels') + theme(plot.title = element_text(hjust = 0.5))
 ```
 
-<img src="D:\scRef\github\figures\PredLabels.png" alt="PredLabels" style="zoom:33%;" />
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/PredLabels.png" alt="PredLabels" style="zoom:33%;" />
 
 ### Ⅱ. Annotation of large dataset
 
@@ -170,7 +170,7 @@ pred.new <- pred.new[rownames(output.scMAGIC), 'scMAGIC.tag']
 
 Results of Ⅱ and Ⅲ is showed in three UMAP plots as follows: the left is cell type labels from Campbell et al; the middle is scMAGIC assignments using Tasic dataset as reference; the right is combination of reference-based annotation and atlas-based inference.
 
-![fig23](/fig23.png)
+![fig23](https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/fig23.png)
 
 ### Ⅳ. Reference-free annotation
 
@@ -195,7 +195,7 @@ table(true.tags, pred.scMAGIC)
 
 Heatmap of reference-free annotation is showed as follows.
 
-![heatmap_MCA_Campbell_scMAGIC](/heatmap_MCA_Campbell_scMAGIC.png)
+![heatmap_MCA_Campbell_scMAGIC](https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC.png)
 
 ## Contact
 
