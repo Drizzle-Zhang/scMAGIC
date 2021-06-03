@@ -2,7 +2,7 @@
 typora-root-url: figures
 ---
 
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/Logo.png" style="zoom: 67%;" />
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/Logo.png" style="zoom: 67%;" />
 
 # scMAGIC
 
