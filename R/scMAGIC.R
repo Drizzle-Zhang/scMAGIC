@@ -3,7 +3,7 @@
 #Email: zhang_yu18@fudan.edu.cn
 #######################################
 
-.get_overlap_genes <- function(exp_sc_mat, exp_ref_mat) {
+get_overlap_genes <- function(exp_sc_mat, exp_ref_mat) {
     exp_ref_mat <- as.data.frame(exp_ref_mat)
     exp_sc_mat <- as.data.frame(exp_sc_mat)
     # get overlap genes
@@ -94,7 +94,7 @@
             print('Gene number of exp_ref_mat:')
             print(nrow(exp_ref_mat))
         }
-        out.overlap <- .get_overlap_genes(exp_sc_mat, exp_ref_mat)
+        out.overlap <- get_overlap_genes(exp_sc_mat, exp_ref_mat)
         exp_sc_mat <- out.overlap$exp_sc_mat
         exp_ref_mat <- out.overlap$exp_ref_mat
         if (verbose) {
@@ -187,7 +187,7 @@
             print('Gene number of exp_ref_mat:')
             print(nrow(exp_ref_mat))
         }
-        out.overlap <- .get_overlap_genes(exp_sc_mat, exp_ref_mat)
+        out.overlap <- get_overlap_genes(exp_sc_mat, exp_ref_mat)
         exp_sc_mat <- out.overlap$exp_sc_mat
         exp_ref_mat <- out.overlap$exp_ref_mat
         if (verbose) {
@@ -493,7 +493,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 
     # overlap genes
     fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
-    out.overlap <- .get_overlap_genes(fpm.MCA, exp_ref_mat)
+    out.overlap <- get_overlap_genes(fpm.MCA, exp_ref_mat)
     fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
     exp_ref_mat <- as.matrix(out.overlap$exp_ref_mat)
     if (use_RUVseq) {
@@ -690,7 +690,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 
     # overlap genes
     fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
-    out.overlap <- .get_overlap_genes(fpm.MCA, LocalRef.sum)
+    out.overlap <- get_overlap_genes(fpm.MCA, LocalRef.sum)
     fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
     LocalRef.sum <- as.matrix(out.overlap$exp_ref_mat)
     if (use_RUVseq) {
@@ -1198,7 +1198,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
 
     # get overlap genes
-    out.overlap <- .get_overlap_genes(exp_sc_mat, exp_ref_mat)
+    out.overlap <- get_overlap_genes(exp_sc_mat, exp_ref_mat)
     exp_sc_mat <- out.overlap$exp_sc_mat
     exp_ref_mat <- out.overlap$exp_ref_mat
     gene_over <- out.overlap$gene_over
