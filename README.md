@@ -171,7 +171,7 @@ table(true.tags, pred.scMAGIC)
 
 Heatmap of reference-free annotation is showed as follows.
 
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC.png" width="500">
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC-1.png" width="500">
 
 ## Contact
 
