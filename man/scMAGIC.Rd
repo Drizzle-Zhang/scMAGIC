@@ -14,11 +14,10 @@ and scMAGIC can assign labels to cells in query dataset based on reference.
 scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         type_ref = c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm'),
         single_round = F, identify_unassigned = T,
-        atlas = c('MCA', 'HCA'), use.RUVseq = T,
-        percent.high.exp = 0.8,
-        cluster.num.pc = 50, cluster.resolution = 1,
-        opt.speed = T, combine.num.cell = 3,
-        method1 = ('kendall', 'spearman', 'pearson', 'cosine', 'multinomial'),            method2 = ('multinomial', 'kendall', 'spearman', 'pearson', 'cosine'),
+        atlas = c('MCA', 'HCL'), use.RUVseq = T,
+        opt.speed = NULL, combine.num.cell = NULL, min_cell = NULL,
+        method1 = ('kendall', 'spearman', 'pearson', 'cosine', 'multinomial'),
+        method2 = ('multinomial', 'kendall', 'spearman', 'pearson', 'cosine'),
         corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
         GMM.num_component = NULL, GMM.floor_cutoff = 5,
         GMM.ceiling_cutoff = 30, GMM.neg_cutoff = NULL,
@@ -32,13 +31,14 @@ scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
   \item{exp_ref_label}{If 'type_ref' is 'sc-counts', 'exp_ref_label' is the vector including well-annotated cell labels corresponding to the cell barcodes of the 'exp_ref_mat'; if not, 'exp_ref_label' is NULL.}
   \item{single_round}{Whether to use single round annotation strategy, by default, scMAGIC use two-round annotation strategy.}
   \item{identify_unassigned}{Whether to label some cells as "Unassigned", by default, it is TRUE. If you think reference covers all cell types in query data, choose FALSE.}
-  \item{atlas}{If reference is from mouse, it is 'MCA'; if reference is from human, it is 'HCA'.}
+  \item{atlas}{If reference is from mouse, it is 'MCA'; if reference is from human, it is 'HCL'.}
   \item{use_RUVseq}{Whether to use 'RUVSeq' to remove the batch effect between reference and atlas, by default, choose TRUE.}
 %%  \item{percent.high.exp}{Choose genes whose expression values are higher than 'percent.high.exp' of genes as "high expression genes".}
-  \item{cluster_num_pc}{Number of PCs used in clustering.}
-  \item{cluster_resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
+%%  \item{cluster_num_pc}{Number of PCs used in clustering.}
+%%  \item{cluster_resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
   \item{opt_speed}{Whether to speed calculation by merge the expression profiles of similar cells.}
   \item{combine_num_cell}{Mean combined cell number in speeding calculation.}
+  \item{min_cell}{If the number of validated cells with a reference cell type isn't less than "min_cell", these cells will be added into local reference.}
   \item{method1}{The methods of similarity calculation in first-round annotation, by default, choose 'kendall'.}
   \item{method2}{The methods of similarity calculation in second-round annotation, by default, choose 'multinomial'.}
   \item{corr_use_HVGene1}{Number of genes to select as top variable genes in similarity calculation of first-round annotation}

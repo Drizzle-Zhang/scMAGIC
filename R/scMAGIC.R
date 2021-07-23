@@ -1183,7 +1183,10 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             min_cell <- combine_num_cell * 2
         }
     } else {
-        min_cell <- 1
+        if (is.null(min_cell)) {
+            min_cell <- 1
+        }
+        combine_num_cell <- 1
     }
 
     time1 <- Sys.time()
