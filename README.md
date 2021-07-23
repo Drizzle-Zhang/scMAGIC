@@ -27,13 +27,13 @@ scMAGIC (**S**ingle **C**ell classification based on **MA**ker **G**enes **I**de
 Please install following R packages before using scMAGIC (Environment: R 4.0.0) :
 
 ```R
-install.packages('parallel')      # 4.0.0
-install.packages('pcaPP')         # 1.9-73
-install.packages('Seurat')        # 3.2.0
-install.packages('limma')         # 3.44.3
-install.packages('RUVSeq')        # 1.22.0
-install.packages('mclust')        # 5.4.6
-install.packages('homologene')    # 1.4.68.19.3.27
+install.packages('parallel')        # 4.0.0
+install.packages('pcaPP')           # 1.9-73
+BiocManager::install('Seurat')      # 3.2.0
+BiocManager::install('limma')       # 3.44.3
+BiocManager::install('RUVSeq')      # 1.22.0
+install.packages('mclust')          # 5.4.6
+install.packages('homologene')      # 1.4.68.19.3.27
 ```
 
 #### Installing scMAGIC
@@ -144,31 +144,11 @@ difftime(time2, time1, units = 'mins')
 table(label_sc, pred.scMAGIC)
 ```
 
-### Ⅲ. Inferring cell types of unassigned cells using Cell Atlas
+Results of annotation are showed in three UMAP plots as follows: the left is cell type labels from Campbell et al; the right is scMAGIC assignments using Tasic dataset as reference.
 
-```R
-# extract unassigned cells
-cell_id.unassigned <- row.names(output.scMAGIC[output.scMAGIC$scMAGIC.tag == 'Unassigned',])
-exp.unassigned <- exp_sc_mat[, cell_id.unassigned]
-label.unassigned <- list.target$label[cell_id.unassigned,]
-# use scMAGIC to annotate the cells
-data("MCA_ref")
-output.unassigned <- scMAGIC(exp.unassigned, MCA_ref,
-                             type_ref = 'sum-counts', use_RUVseq = F,
-                             corr_use_HVGene1 = 2000, corr_use_HVGene2 = NULL,
-                             num_threads = 8)
-# classification results
-table(label.unassigned, output.unassigned$scMAGIC.tag)
-# combine results of reference-based annotation and atlas-based inference
-output.new <- rbind(output.scMAGIC[output.scMAGIC$scMAGIC.tag != 'Unassigned',], output.unassigned)
-pred.new <- pred.new[rownames(output.scMAGIC), 'scMAGIC.tag']
-```
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/large_dataset.png" width="900">
 
-Results of Ⅱ and Ⅲ is showed in three UMAP plots as follows: the left is cell type labels from Campbell et al; the middle is scMAGIC assignments using Tasic dataset as reference; the right is combination of reference-based annotation and atlas-based inference.
-
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/fig23.png" width="900">
-
-### Ⅳ. Reference-free annotation
+### Ⅲ. Reference-free annotation
 
 In an exploratory study, users either do not have any knowledge about the cell types included in their study, or do not have a reference expression matrix available to use. In this case, an Atlas cell expression matrix can be used as the reference matrix, and scMAGIC can be applied to make an tentative classification of the target dataset. As a example, we use MCA as the reference to annotate the Campbell dataset.
 
@@ -191,7 +171,7 @@ table(true.tags, pred.scMAGIC)
 
 Heatmap of reference-free annotation is showed as follows.
 
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC.png" width="500">
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC-1.png" width="500">
 
 ## Contact
 
