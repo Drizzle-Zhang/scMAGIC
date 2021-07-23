@@ -150,28 +150,36 @@ Results of annotation are showed in three UMAP plots as follows: the left is cel
 
 ### Ⅲ. Reference-free annotation
 
-In an exploratory study, users either do not have any knowledge about the cell types included in their study, or do not have a reference expression matrix available to use. In this case, an Atlas cell expression matrix can be used as the reference matrix, and scMAGIC can be applied to make an tentative classification of the target dataset. As a example, we use MCA as the reference to annotate the Campbell dataset.
+In an exploratory study, users either do not have any knowledge about the cell types included in their study, or do not have a reference expression matrix available to use. In this case, an Atlas cell expression matrix can be used as the reference matrix, and scMAGIC can be applied to make an tentative classification of the target dataset. As a example, we use MCA as the reference to annotate the mouse neocortex dataset.
+
+#### Download dataset
+
+```shell
+wget https://github.com/Drizzle-Zhang/scMAGIC_scripts/raw/main/data/MouseNeocortex.Rdata
+```
+
+#### Run scMAGIC
 
 ```R
 library(scMAGIC)
 # load target dataset 
-list.target <- readRDS('Campbell.Rdata')
+list.target <- readRDS('MouseNeocortex.Rdata')
 exp_sc_mat <- list.target$mat_exp
-label_sc <-list.target$label[,1]
+label_sc <-list.target$label
 # load MCA
 data("MCA_ref")
 # run scMAGIC
 output.scMAGIC <- scMAGIC(exp_sc_mat, MCA_ref,
                           type_ref = 'sum-counts', use_RUVseq = F,
-                          num_threads = 10)
+                          min_cell = 5, num_threads = 10)
 pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
 # classification results
-table(true.tags, pred.scMAGIC)
+table(label_sc, pred.scMAGIC)
 ```
 
 Heatmap of reference-free annotation is showed as follows.
 
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_Campbell_scMAGIC-1.png" width="500">
+<img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/heatmap_MCA_MouseNeocortex.png" width="500">
 
 ## Contact
 
