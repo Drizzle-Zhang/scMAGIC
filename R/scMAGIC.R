@@ -596,7 +596,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     markers <- FindMarkers(seurat.Ref.cell, ident.1 = cell, group.by = 'original.label',
                            only.pos = T, features = genes.high, min.cells.group = 1,
                            min.pct = 0.3, min.diff.pct = 0.1,
-                           logfc.threshold = 0.5, verbose = F)
+                           logfc.threshold = 0.4, verbose = F)
     # markers$p_val_fdr <- p.adjust(markers$p_val, method = 'fdr')
     genes.ref <- row.names(markers[(markers$p_val_adj < 0.01),])
     if (length(genes.ref) < (3*topN)) {
@@ -624,7 +624,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         markers <- FindMarkers(seurat.neg.cell, ident.1 = cell, group.by = 'original.label',
                                only.pos = T, features = use.genes, min.cells.group = 1,
                                min.pct = 0.3, min.diff.pct = 0.1,
-                               logfc.threshold = 0.5, verbose = F)
+                               logfc.threshold = 0.4, verbose = F)
         # markers$p_val_fdr <- p.adjust(markers$p_val, method = 'fdr')
         genes.neg <- row.names(markers[(markers$p_val_adj < 0.01),])
         # if (length(genes.ref) < (2*topN)) {

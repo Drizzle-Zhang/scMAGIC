@@ -16,9 +16,7 @@
 
 ## Overview
 
-scMAGIC (**S**ingle **C**ell classification based on **MA**ker **G**enes **I**dentification and expression profile **C**orrelation) is a novel single-cell classification tool using well-annotated bulk or single-cell RNA-seq data as the reference. The main idea of scMAGIC is to first identify the most likely cell type in the reference for a single cell based on expression profile correlation, and then verify its cell identity by using the corresponding marker genes of the reference cell type. Furthermore , scMAGIC conducts a second-round of reference-based classification by using target single cells with verified cell identity as the new reference to overcome the significant batch effects between the reference and the query data.
-
-<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/workflow.png" width="900">
+scMAGIC (**S**ingle **C**ell annotation using **MA**rker **G**enes **I**dentification and two rounds of reference-based **C**lassification(RBC)) is a novel single-cell classification tool using well-annotated bulk or single-cell RNA-seq data as the reference. The main idea of scMAGIC is to first identify the most likely cell type in the reference for a single cell based on expression profile correlation, and then verify its cell identity by using the corresponding marker genes of the reference cell type. Furthermore , scMAGIC conducts a second-round of RBC by using target single cells with verified cell identity as the new reference to overcome the significant batch effects between the reference and the query data. Therefore, scMAGIC's advantage is especially significant when the cell types in the query dataset are not completely covered by the reference dataset and when there exist significant batch effects between the reference and the query datasets. Moreover, when no reference dataset is available, scMAGIC can annotate query cells with reasonably high accuracy by using an atlas dataset as the reference.<img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/workflow.png" width="900">
 
 ## Installation
 
@@ -186,3 +184,4 @@ Heatmap of reference-free annotation is showed as follows.
 Please contact: 
 
 Yu Zhang: zhang_yu18@fudan.edu.cn
+
