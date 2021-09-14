@@ -784,6 +784,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     combine_num_cell <- combine_num_cell
 
     .merge.one.cluster <- function(cluster.id) {
+        library(Seurat)
         # merge cells in one cluster
         cell.ids <- names(df.cluster[df.cluster[, 'cluster.id'] == cluster.id,])
         sub.exp <- exp_sc_mat[, cell.ids]
@@ -898,7 +899,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     cl.input <- list()
     cl <- makeCluster(num_threads, outfile = '', type = 'FORK')
     # clusterExport(cl, '.generate_ref')
-    clusterEvalQ(cl, library(Seurat))
+    # clusterEvalQ(cl, library(Seurat))
     out.par <- parLapply(
         cl = cl,
         cluster.ids,
@@ -961,31 +962,6 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         }
     }
     pvalue <- max(out.test$p.value, 1e-200)
-    # library(ggplot2)
-    # # ggplot(test.in, aes(x = expression.level, color = factor.mark.gene)) +
-    # #     geom_line(stat = 'density') +
-    # #     # ylim(0,0.5) +
-    # #     xlim(0, 25)
-    # test.in$marker.gene <- factor(as.numeric(test.in$factor.mark.gene), levels = c(1, 2),
-    #                               labels = c('Other genes', 'Marker genes'))
-    # plot.ecdf <- ggplot(test.in, aes(x = expression.level, color = marker.gene)) +
-    #     stat_ecdf(size = 1.5) +
-    #     scale_color_manual(breaks = c('Other genes', 'Marker genes'),
-    #                        values = c('black', '#F8766D')) +
-    #     ylim(0, 1) +
-    #     xlim(0, 25) +
-    #     labs(x = 'Counts', y = 'Empirical cumulative distribution function',
-    #          color = '') +
-    #     theme(panel.grid = element_blank(),
-    #           panel.background = element_rect(fill='transparent', color='gray'),
-    #           legend.key=element_rect(fill='transparent', color='transparent'),
-    #           axis.text.x = element_text(size = 12),
-    #           axis.text.y = element_text(size = 12),
-    #           axis.title.x = element_text(size = 15),
-    #           axis.title.y = element_text(size = 12),
-    #           legend.text = element_text(size = 15))
-    # ggsave(plot = plot.ecdf, path = '/home/zy/scRef/figure', filename = 'ecdf.png',
-    #        units = 'cm', height = 10, width = 15)
     gc()
     return(data.frame(pvalue = pvalue, row.names = barcode))
 
@@ -1644,13 +1620,10 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         output <- list()
         output$tag1 <- tag1
         output$out1 <- out1
-        output$tag2 <- tag2
-        output$out2 <- out2
         output$LocalRef <- LocalRef
         if (identify_unassigned) {
             output$pvalue1 <- df.tags1
-            output$pvalue2 <- df.tags2
-            output$combine.out <- df.tags
+            output$pvalue2 <- df.tags
             output$info.cluster <- info.cluster
             if (opt_speed) {
                 output$dict.cluster <- df.dict
