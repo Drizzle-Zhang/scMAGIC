@@ -1305,8 +1305,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                                               opt.strict = T, opt.negative = T)
             df.cutoff.1 <- out.cutoff$vec.cutoff
             neg.cutoff.1 <- out.cutoff$vec.neg.cutoff
-            print('Default cutoff: ')
-            print(df.cutoff.1)
+            # print('Default cutoff: ')
+            # print(df.cutoff.1)
 
             if (single_round) {
                 df.tags <- df.tags1
@@ -1408,7 +1408,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             }
             list.localNeg <- list()
             for (cell in names(neg.cutoff.1)) {
-                print(cell)
+                # print(cell)
                 sub.cutoff <- neg.cutoff.1[cell]
                 if (is.na(sub.cutoff)) {
                     next()
@@ -1541,8 +1541,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                                               cutoff.pos = GMM.floor_cutoff + min.diff,
                                               ceiling.cutoff = GMM.ceiling_cutoff + min.diff)
             df.cutoff.2 <- out.cutoff.2$vec.cutoff
-            print('Default cutoff: ')
-            print(df.cutoff.2)
+            # print('Default cutoff: ')
+            # print(df.cutoff.2)
             df.tags$scRef.tag.12 <- as.character(df.tags$scRef.tag)
             df.tags$scRef.tag <- df.tags$scRef.tag.12
             for (cell in names(df.cutoff.2)) {
@@ -1646,6 +1646,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         output$out1 <- out1
         output$tag2 <- tag2
         output$out2 <- out2
+        output$LocalRef <- LocalRef
         if (identify_unassigned) {
             output$pvalue1 <- df.tags1
             output$pvalue2 <- df.tags2
