@@ -507,6 +507,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     cell.MCA <- dimnames(fpm.MCA)[[2]]
     cell.ref <- dimnames(exp_ref_mat)[[2]]
     # use RUVseq to remove batch effect
+    use_RUVseq=F
     mtx.in <- cbind(fpm.MCA, exp_ref_mat)
     names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
     dimnames(mtx.in)[[2]] <- names.mix
@@ -1662,3 +1663,16 @@ transformHomoloGene <- function(exp_sc_mat, inTaxID = 9606, outTaxID = 10090) {
     return(exp.out)
 }
 
+
+scMAGIC_Seurat <- function(seurat.query, seurat.ref, atlas = 'MCA', corr_use_HVGene = 2000,
+                           GMM.floor_cutoff = 5, num_threads = 4) {
+    exp_sc_mat <- seurat.query@assays$RNA@counts
+    exp_ref_mat <- seurat.ref@assays$RNA@counts
+    exp_ref_label <- seurat.ref@meta.data$celltype
+    output.scMAGIC <- scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label,
+                              atlas = atlas, corr_use_HVGene = corr_use_HVGene,
+                              GMM.floor_cutoff = GMM.floor_cutoff, num_threads = num_threads)
+    pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
+    seurat.query$prediction_celltype <- pred.scMAGIC
+    return(seurat.query)
+}

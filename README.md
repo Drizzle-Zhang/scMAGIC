@@ -113,6 +113,20 @@ DimPlot(Obj.seurat, reduction = "umap",
 
 <img src="https://github.com/Drizzle-Zhang/scMAGIC/raw/main/figures/PredLabels.png" width="500">
 
+#### Compatible with Seurat object as input and output
+
+```R
+# inputs
+library(Seurat)
+seurat.query <- CreateSeuratObject(counts = exp_sc_mat)
+seurat.ref <- CreateSeuratObject(counts = ref.mtx)
+seurat.ref$celltype <- ref.labels
+# output
+seurat.query <- scMAGIC_Seurat(seurat.query, seurat.ref)
+```
+
+
+
 ### Ⅱ. Annotation of large dataset
 
 If the target dataset contains more than 5000 cells, scMAGIC will accelerate the computation by merge similar cells automatically. Here, we identify cell types of more than 20000 cells in Campbell dataset.
