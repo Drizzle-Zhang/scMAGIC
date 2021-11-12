@@ -1040,7 +1040,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 }
 
 
-.one_cutoff_AUC <- function(i, cells, df.tags1, list_tags1_back) {
+.one_cutoff_AUC <- function(i, cells, df.tags1, auc_gap, list_tags1_back) {
     library(mclust, verbose = F)
     cell <- cells[i]
     df.sub <- df.tags1[df.tags1$scRef.tag == cell, ]
@@ -1070,8 +1070,8 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         for (i in 1:(length(mean_AUC)-1)) {
             diff_AUC <- c(diff_AUC, mean_AUC[i+1] - mean_AUC[i])
         }
-        if (sum(diff_AUC > 0.18) > 0) {
-            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > 0.18])
+        if (sum(diff_AUC > auc_gap) > 0) {
+            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap])
             # cut_AUC <- mean_AUC[cut_class]
             df.sub$class_AUC <- model_AUC$classification
             cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
@@ -1109,7 +1109,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 }
 
 
-.cutoff_AUC <- function(df.tags1, list_tags1_back, num_threads = num_threads) {
+.cutoff_AUC <- function(df.tags1, list_tags1_back, auc_gap, num_threads = num_threads) {
     library(parallel, verbose = F)
     cells <- as.character(unique(df.tags1$scRef.tag))
     list.cutoff <- list()
@@ -1123,6 +1123,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         .one_cutoff_AUC,
         cells = cells,
         df.tags1 = df.tags1,
+        auc_gap = auc_gap,
         list_tags1_back = list_tags1_back
     )
     stopCluster(cl)
@@ -1151,7 +1152,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     combine_num_cell = NULL, min_cell = 1,
                     method1 = 'kendall', method2 = NULL,
                     corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
-                    GMM.floor_cutoff = 5, num_threads = 4, cluster_assign = F,
+                    threshold = 5, num_threads = 4, cluster_assign = F,
                     simple_output = T) {
 
     library(parallel, verbose = F)
@@ -1332,7 +1333,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.tags1 <- merge(df.tags1, df.dict, by = 'row.names')
         rownames(df.tags1) <- df.tags1$Row.names
         df.tags1$Row.names <- NULL
-        out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, num_threads = num_threads)
+        auc_gap <- (threshold-5) + 0.18
+        out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, auc_gap, num_threads = num_threads)
         df.cutoff.1 <- out.cutoff$list.cutoff
         neg.cutoff.1 <- out.cutoff$vec.neg.cutoff
         vec.cut_1 <- out.cutoff$vec.cut
