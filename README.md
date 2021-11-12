@@ -20,11 +20,10 @@ scMAGIC (**S**ingle **C**ell annotation using **MA**rker **G**enes **I**dentific
 
 ## Installation
 
-#### Installing dependency package
-
-Please install following R packages before using scMAGIC (Environment: R 4.0.0) :
+#### Installing scMAGIC
 
 ```R
+# R environment: R 4.0.0
 install.packages('parallel')        # 4.0.0
 install.packages('pcaPP')           # 1.9-73
 BiocManager::install('Seurat')      # 3.2.0
@@ -32,16 +31,9 @@ BiocManager::install('limma')       # 3.44.3
 BiocManager::install('RUVSeq')      # 1.22.0
 install.packages('mclust')          # 5.4.6
 install.packages('homologene')      # 1.4.68.19.3.27
-```
-
-#### Installing scMAGIC
-
-You can install scMAGIC from Github:
-
-```
-if (!requireNamespace("devtools", quietly = TRUE)) {
-	install.packages("devtools")
-}
+install.packages("devtools")
+devtools::install_github("PaulingLiu/scibet") # This package provides faster methods to select features and calculate multinomial metric.
+BiocManager::install("AUCell")		# 1.10.0
 devtools::install_github("Drizzle-Zhang/scMAGIC")
 ```
 
@@ -124,8 +116,6 @@ seurat.ref$celltype <- ref.labels
 # output
 seurat.query <- scMAGIC_Seurat(seurat.query, seurat.ref)
 ```
-
-
 
 ### Ⅱ. Annotation of large dataset
 

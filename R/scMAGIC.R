@@ -1058,7 +1058,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
             min_G <- 4
             max_G <- 6
         } else {
-            min_G <- 2
+            min_G <- 3
             max_G <- 5
         }
         model_AUC <- densityMclust(sub_AUC[,1], verbose = F, G = min_G:max_G)
