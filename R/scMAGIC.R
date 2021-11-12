@@ -1070,8 +1070,8 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         for (i in 1:(length(mean_AUC)-1)) {
             diff_AUC <- c(diff_AUC, mean_AUC[i+1] - mean_AUC[i])
         }
-        if (sum(diff_AUC > 0.2) > 0) {
-            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > 0.2])
+        if (sum(diff_AUC > 0.18) > 0) {
+            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > 0.18])
             # cut_AUC <- mean_AUC[cut_class]
             df.sub$class_AUC <- model_AUC$classification
             cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
