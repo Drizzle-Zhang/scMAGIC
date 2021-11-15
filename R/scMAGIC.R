@@ -1334,9 +1334,9 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         rownames(df.tags1) <- df.tags1$Row.names
         df.tags1$Row.names <- NULL
         if (threshold <= 5) {
-            auc_gap <- (5-threshold)*2 + 0.2
+            auc_gap <- (5-threshold)*2 + 0.18
         } else {
-            auc_gap <- (5-threshold) + 0.2
+            auc_gap <- (5-threshold) + 0.18
         }
         out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, auc_gap, num_threads = num_threads)
         df.cutoff.1 <- out.cutoff$list.cutoff
