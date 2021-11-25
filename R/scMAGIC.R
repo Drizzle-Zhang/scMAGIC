@@ -1046,7 +1046,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     df.sub <- df.tags1[df.tags1$scRef.tag == cell, ]
     sub_AUC <- df.sub[, c('AUC', 'diff')]
     cell_back <- list_tags1_back[[cell]]
-    back_value <- min(quantile(cell_back,0.9), 0.2)
+    back_value <- min(quantile(cell_back,0.9), 0.05)
     if (sum(df.tags1$scRef.tag == cell) < 5) {
         one_out <- list()
         one_out[[1]] <- cell
@@ -1058,7 +1058,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
             min_G <- 4
             max_G <- 6
         } else {
-            min_G <- 3
+            min_G <- 2
             max_G <- 5
         }
         model_AUC <- densityMclust(sub_AUC[,1], verbose = F, G = min_G:max_G)
@@ -1069,6 +1069,9 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         diff_AUC <- c()
         for (i in 1:(length(mean_AUC)-1)) {
             diff_AUC <- c(diff_AUC, mean_AUC[i+1] - mean_AUC[i])
+        }
+        if (nrow(df.sub) < 200) {
+            auc_gap <- max(auc_gap, 0.2)
         }
         if (sum(diff_AUC > auc_gap) > 0) {
             cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap])
@@ -1333,10 +1336,15 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.tags1 <- merge(df.tags1, df.dict, by = 'row.names')
         rownames(df.tags1) <- df.tags1$Row.names
         df.tags1$Row.names <- NULL
-        if (threshold <= 5) {
-            auc_gap <- (5-threshold)*2 + 0.18
+        if (median(colSums(exp_sc_mat != 0)) < 1200) {
+            base_thre <- 0.23
         } else {
-            auc_gap <- (5-threshold) + 0.18
+            base_thre <- 0.18
+        }
+        if (threshold <= 5) {
+            auc_gap <- (5-threshold)*2 + base_thre
+        } else {
+            auc_gap <- (5-threshold) + base_thre
         }
         out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, auc_gap, num_threads = num_threads)
         df.cutoff.1 <- out.cutoff$list.cutoff
