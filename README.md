@@ -34,6 +34,7 @@ install.packages('homologene')      # 1.4.68.19.3.27
 install.packages("devtools")
 devtools::install_github("PaulingLiu/scibet") # This package provides faster methods to select features and calculate multinomial metric.
 BiocManager::install("AUCell")		# 1.10.0
+install.packages("randomForest")    # 4.6-14
 devtools::install_github("Drizzle-Zhang/scMAGIC")
 ```
 
@@ -171,9 +172,9 @@ label_sc <-list.target$label
 # load MCA
 data("MCA_ref")
 # run scMAGIC
-output.scMAGIC <- scMAGIC(exp_sc_mat, MCA_ref,
-                          type_ref = 'sum-counts', use_RUVseq = F,
-                          min_cell = 5, num_threads = 10)
+output.scMAGIC <- scMAGIC_atlas(exp_sc_mat, MCA_ref,
+                                type_ref = 'sum-counts', use_RUVseq = F,
+                                min_cell = 5, num_threads = 10)
 pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
 # classification results
 table(label_sc, pred.scMAGIC)
