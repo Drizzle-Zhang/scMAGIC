@@ -516,6 +516,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     if (type_ref %in% c('fpkm', 'tpm', 'rpkm', 'bulk')) {
         exp_ref_mat <- as.matrix(log1p(exp_ref_mat))
     }
+    cell.ref <- dimnames(exp_ref_mat)[[2]]
 
     if (!is.null(seurat.out.group)) {
         ###### regard a outgroup (e.g. MCA/HCA) as reference of DEG
@@ -536,7 +537,6 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         # print(nrow(exp_ref_mat))
 
         cell.MCA <- dimnames(fpm.MCA)[[2]]
-        cell.ref <- dimnames(exp_ref_mat)[[2]]
         # use RUVseq to remove batch effect
         mtx.in <- cbind(fpm.MCA, exp_ref_mat)
         names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
@@ -550,6 +550,9 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         }
         mtx.combat.use <- mtx.combat[, paste0('MCA.', cell.MCA)]
     } else {
+        mtx.combat <- exp_ref_mat
+        names.mix <- paste0('Ref.', cell.ref)
+        dimnames(mtx.combat)[[2]] <- names.mix
         mtx.combat.use <- NULL
     }
 
@@ -713,6 +716,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     seurat.Ref.sum <- CreateSeuratObject(counts = LocalRef, project = "Ref")
     seurat.Ref.sum <- NormalizeData(seurat.Ref.sum, verbose = F)
     LocalRef.sum <- as.matrix(seurat.Ref.sum@assays$RNA@data)
+    cell.ref <- dimnames(LocalRef.sum)[[2]]
 
     if (!is.null(seurat.out.group)) {
         ###### regard a outgroup (e.g. MCA/HCL) as reference of DEG
@@ -748,6 +752,9 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         mtx.combat <- mtx.in
         mtx.combat.use <- mtx.combat[, paste0('MCA.', cell.MCA)]
     } else {
+        mtx.combat <- LocalRef.sum
+        names.mix <- paste0('Ref.', cell.ref)
+        dimnames(mtx.combat)[[2]] <- names.mix
         mtx.combat.use <- NULL
     }
 

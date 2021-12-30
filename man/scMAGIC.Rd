@@ -12,16 +12,14 @@ and scMAGIC can assign labels to cells in query dataset based on reference.
 }
 \usage{
 scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
-        type_ref = c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm'),
         single_round = F, identify_unassigned = T,
-        atlas = c('MCA', 'HCL'), use.RUVseq = T,
-        opt.speed = NULL, combine.num.cell = NULL, min_cell = NULL,
+        atlas = c(NULL, 'MCA', 'HCL'), use.RUVseq = T,
+        cluster_num_pc = 50, cluster_resolution = 3,
+        combine_num_cell = NULL, min_cell = 1,
         method1 = ('kendall', 'spearman', 'pearson', 'cosine', 'multinomial'),
-        method2 = ('multinomial', 'kendall', 'spearman', 'pearson', 'cosine'),
+        method2 = ('multinomial', 'kendall', 'spearman', 'pearson', 'cosine', 'randomforest'),
         corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
-        GMM.num_component = NULL, GMM.floor_cutoff = 5,
-        GMM.ceiling_cutoff = 30, GMM.neg_cutoff = NULL,
-        threshold.recall = 0.2, CPU = 4, simple.output = T)
+        threshold = 5, num_threads = 4, cluster_assign = F, simple.output = T)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
