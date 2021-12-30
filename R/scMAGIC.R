@@ -468,21 +468,25 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     use.genes <- genes.ref
 
     # diff in Atlas
-    if (length(use.genes) > 4*topN) {
-        mtx.limma <- cbind(mtx.combat.use, vec.cell)
-        bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
-        res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
-        res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
-        genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
-        if (length(genes.diff) < (topN)) {
-            res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
-            genes.diff <- row.names(res.limma.MCA)[1:(topN)]
+    if (!is.null(mtx.combat.use)) {
+        if (length(use.genes) > 4*topN) {
+            mtx.limma <- cbind(mtx.combat.use, vec.cell)
+            bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
+            res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+            res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
+            genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
+            if (length(genes.diff) < (topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:(topN)]
+            }
+            if (length(genes.diff) > (3*topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:(3*topN)]
+            }
+        } else {
+            genes.diff <- use.genes
         }
-        if (length(genes.diff) > (3*topN)) {
-            res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
-            genes.diff <- row.names(res.limma.MCA)[1:(3*topN)]
-        }
-    } else {
+    }else {
         genes.diff <- use.genes
     }
 
@@ -513,38 +517,41 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         exp_ref_mat <- as.matrix(log1p(exp_ref_mat))
     }
 
-    ###### regard a outgroup (e.g. MCA/HCA) as reference of DEG
-    seurat.MCA <- seurat.out.group
-    fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
+    if (!is.null(seurat.out.group)) {
+        ###### regard a outgroup (e.g. MCA/HCA) as reference of DEG
+        seurat.MCA <- seurat.out.group
+        fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
 
-    # overlap genes
-    fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
-    out.overlap <- get_overlap_genes(fpm.MCA, exp_ref_mat)
-    fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
-    exp_ref_mat <- as.matrix(out.overlap$exp_ref_mat)
-    if (use_RUVseq) {
-        gene_overlap <- out.overlap$gene_over
-        SEG.MCA <- VariableFeatures(seurat.MCA)
-        gene.constant <- intersect(gene_overlap, SEG.MCA)
-    }
-    # print('Number of overlapped genes:')
-    # print(nrow(exp_ref_mat))
+        # overlap genes
+        fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
+        out.overlap <- get_overlap_genes(fpm.MCA, exp_ref_mat)
+        fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
+        exp_ref_mat <- as.matrix(out.overlap$exp_ref_mat)
+        if (use_RUVseq) {
+            gene_overlap <- out.overlap$gene_over
+            SEG.MCA <- VariableFeatures(seurat.MCA)
+            gene.constant <- intersect(gene_overlap, SEG.MCA)
+        }
+        # print('Number of overlapped genes:')
+        # print(nrow(exp_ref_mat))
 
-    cell.MCA <- dimnames(fpm.MCA)[[2]]
-    cell.ref <- dimnames(exp_ref_mat)[[2]]
-    # use RUVseq to remove batch effect
-    mtx.in <- cbind(fpm.MCA, exp_ref_mat)
-    names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
-    dimnames(mtx.in)[[2]] <- names.mix
-    if (use_RUVseq) {
-        library(RUVSeq, verbose = F)
-        seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=1, isLog = T)
-        mtx.combat <- seqRUVg$normalizedCounts
+        cell.MCA <- dimnames(fpm.MCA)[[2]]
+        cell.ref <- dimnames(exp_ref_mat)[[2]]
+        # use RUVseq to remove batch effect
+        mtx.in <- cbind(fpm.MCA, exp_ref_mat)
+        names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
+        dimnames(mtx.in)[[2]] <- names.mix
+        if (use_RUVseq) {
+            library(RUVSeq, verbose = F)
+            seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=1, isLog = T)
+            mtx.combat <- seqRUVg$normalizedCounts
+        } else {
+            mtx.combat <- mtx.in
+        }
+        mtx.combat.use <- mtx.combat[, paste0('MCA.', cell.MCA)]
     } else {
-        mtx.combat <- mtx.in
+        mtx.combat.use <- NULL
     }
-    mtx.combat <- mtx.in
-    mtx.combat.use <- mtx.combat[, paste0('MCA.', cell.MCA)]
 
     mat_cor <- cor(exp_ref_mat)
     # library(pcaPP)
@@ -662,19 +669,23 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     use.genes <- genes.ref
 
     # diff in Atlas
-    if (length(use.genes) > 4*topN) {
-        mtx.limma <- cbind(mtx.combat.use, vec.cell)
-        bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
-        res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
-        res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
-        genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
-        if (length(genes.diff) < (topN)) {
-            res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
-            genes.diff <- row.names(res.limma.MCA)[1:min(topN, nrow(res.limma.MCA))]
-        }
-        if (length(genes.diff) > (2*topN)) {
-            res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
-            genes.diff <- row.names(res.limma.MCA)[1:(2*topN)]
+    if (!is.null(mtx.combat.use)) {
+        if (length(use.genes) > 4*topN) {
+            mtx.limma <- cbind(mtx.combat.use, vec.cell)
+            bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
+            res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+            res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
+            genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
+            if (length(genes.diff) < (topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:min(topN, nrow(res.limma.MCA))]
+            }
+            if (length(genes.diff) > (2*topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:(2*topN)]
+            }
+        } else {
+            genes.diff <- use.genes
         }
     } else {
         genes.diff <- use.genes
@@ -703,38 +714,42 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     seurat.Ref.sum <- NormalizeData(seurat.Ref.sum, verbose = F)
     LocalRef.sum <- as.matrix(seurat.Ref.sum@assays$RNA@data)
 
-    ###### regard a outgroup (e.g. MCA/HCL) as reference of DEG
-    seurat.MCA <- seurat.out.group
-    fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
+    if (!is.null(seurat.out.group)) {
+        ###### regard a outgroup (e.g. MCA/HCL) as reference of DEG
+        seurat.MCA <- seurat.out.group
+        fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
 
-    # overlap genes
-    fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
-    out.overlap <- get_overlap_genes(fpm.MCA, LocalRef.sum)
-    fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
-    LocalRef.sum <- as.matrix(out.overlap$exp_ref_mat)
-    if (use_RUVseq) {
-        gene_overlap <- out.overlap$gene_over
-        SEG.MCA <- VariableFeatures(seurat.MCA)
-        gene.constant <- intersect(gene_overlap, SEG.MCA)
-    }
-    # print('Number of overlapped genes:')
-    # print(nrow(exp_ref_mat))
+        # overlap genes
+        fpm.MCA <- as.matrix(seurat.MCA@assays$RNA@data)
+        out.overlap <- get_overlap_genes(fpm.MCA, LocalRef.sum)
+        fpm.MCA <- as.matrix(out.overlap$exp_sc_mat)
+        LocalRef.sum <- as.matrix(out.overlap$exp_ref_mat)
+        if (use_RUVseq) {
+            gene_overlap <- out.overlap$gene_over
+            SEG.MCA <- VariableFeatures(seurat.MCA)
+            gene.constant <- intersect(gene_overlap, SEG.MCA)
+        }
+        # print('Number of overlapped genes:')
+        # print(nrow(exp_ref_mat))
 
-    cell.MCA <- dimnames(fpm.MCA)[[2]]
-    cell.ref <- dimnames(LocalRef.sum)[[2]]
-    # use RUVseq to remove batch effect
-    mtx.in <- cbind(fpm.MCA, LocalRef.sum)
-    names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
-    dimnames(mtx.in)[[2]] <- names.mix
-    if (use_RUVseq) {
-        library(RUVSeq, verbose = F)
-        seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=3, isLog = T)
-        mtx.combat <- seqRUVg$normalizedCounts
-    } else {
+        cell.MCA <- dimnames(fpm.MCA)[[2]]
+        cell.ref <- dimnames(LocalRef.sum)[[2]]
+        # use RUVseq to remove batch effect
+        mtx.in <- cbind(fpm.MCA, LocalRef.sum)
+        names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
+        dimnames(mtx.in)[[2]] <- names.mix
+        if (use_RUVseq) {
+            library(RUVSeq, verbose = F)
+            seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=3, isLog = T)
+            mtx.combat <- seqRUVg$normalizedCounts
+        } else {
+            mtx.combat <- mtx.in
+        }
         mtx.combat <- mtx.in
+        mtx.combat.use <- mtx.combat[, paste0('MCA.', cell.MCA)]
+    } else {
+        mtx.combat.use <- NULL
     }
-    mtx.combat <- mtx.in
-    mtx.combat.use <- mtx.combat[, paste0('MCA.', cell.MCA)]
 
     mat_cor <- cor(LocalRef.sum)
     # library(pcaPP)
@@ -1112,12 +1127,22 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 }
 
 
-.cutoff_AUC <- function(df.tags1, list_tags1_back, auc_gap, num_threads = num_threads) {
+.cutoff_AUC <- function(df.tags1, list_tags1_back, exp_sc_mat, threshold, num_threads = num_threads) {
     library(parallel, verbose = F)
     cells <- as.character(unique(df.tags1$scRef.tag))
     list.cutoff <- list()
     vec.neg.cutoff <- c()
     vec.cut <- c()
+    if (median(colSums(exp_sc_mat != 0)) < 1200) {
+        base_thre <- 0.23
+    } else {
+        base_thre <- 0.18
+    }
+    if (threshold <= 5) {
+        auc_gap <- (5-threshold)*2 + base_thre
+    } else {
+        auc_gap <- (5-threshold) + base_thre
+    }
 
     cl = makeCluster(num_threads, outfile = '')
     RUN <- parLapply(
@@ -1150,7 +1175,8 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 
 
 scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
-                    identify_unassigned = T, atlas = 'MCA', use_RUVseq = T,
+                    single_round = F, identify_unassigned = T,
+                    atlas = NULL, use_RUVseq = T,
                     cluster_num_pc = 50, cluster_resolution = 3,
                     combine_num_cell = NULL, min_cell = 1,
                     method1 = 'kendall', method2 = NULL,
@@ -1171,7 +1197,6 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     type_ref = 'sc-counts'
     out.group = atlas
     opt_speed = F
-    single_round = F
     num_cell <- ncol(exp_sc_mat)
     if (is.null(combine_num_cell)) {
         if (num_cell > 3000) {
@@ -1208,13 +1233,17 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     # print('Number of overlapped genes:')
     # print(nrow(exp_sc_mat))
 
-    seurat.out.group <- .imoprt_outgroup(out.group = out.group, use_RUVseq = use_RUVseq)
+    if (!is.null(out.group)) {
+        seurat.out.group <- .imoprt_outgroup(out.group = out.group, use_RUVseq = use_RUVseq)
+        # overlap genes
+        gene.overlap <- intersect(gene_over, rownames(seurat.out.group@assays$RNA@counts))
+        exp_sc_mat <- exp_sc_mat[gene.overlap, ]
+        exp_ref_mat <- exp_ref_mat[gene.overlap, ]
+        exp_ref_mat.cell <- exp_ref_mat.cell[gene.overlap,]
+    } else {
+        seurat.out.group <- NULL
+    }
 
-    # overlap genes
-    gene.overlap <- intersect(gene_over, rownames(seurat.out.group@assays$RNA@counts))
-    exp_sc_mat <- exp_sc_mat[gene.overlap, ]
-    exp_ref_mat <- exp_ref_mat[gene.overlap, ]
-    exp_ref_mat.cell <- exp_ref_mat.cell[gene.overlap,]
     print('Number of overlapped genes:')
     print(nrow(exp_sc_mat))
 
@@ -1336,104 +1365,69 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.tags1 <- merge(df.tags1, df.dict, by = 'row.names')
         rownames(df.tags1) <- df.tags1$Row.names
         df.tags1$Row.names <- NULL
-        if (median(colSums(exp_sc_mat != 0)) < 1200) {
-            base_thre <- 0.23
-        } else {
-            base_thre <- 0.18
-        }
-        if (threshold <= 5) {
-            auc_gap <- (5-threshold)*2 + base_thre
-        } else {
-            auc_gap <- (5-threshold) + base_thre
-        }
-        out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, auc_gap, num_threads = num_threads)
+        out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, exp_sc_mat, threshold, num_threads = num_threads)
         df.cutoff.1 <- out.cutoff$list.cutoff
         neg.cutoff.1 <- out.cutoff$vec.neg.cutoff
         vec.cut_1 <- out.cutoff$vec.cut
 
         if (single_round) {
-                df.tags <- df.tags1
-                df.tags$scRef.tag.1 <- as.character(df.tags$scRef.tag)
-                df.tags$scRef.tag <- df.tags$scRef.tag.1
-                for (cell in names(df.cutoff.1)) {
-                    sub.cutoff <- df.cutoff.1[cell]
-                    df.tags$scRef.tag[(df.tags$scRef.tag.1 == cell) &
-                                          (df.tags$log10Pval < sub.cutoff)] <- 'Unassigned'
-                }
+            pvalue1 <- data.frame(stringsAsFactors = F)
+            for (one_cell in unique(df.tags1$scRef.tag)) {
+                df_sub <- df.tags1[df.tags1$scRef.tag == one_cell, c('scRef.tag', 'AUC')]
+                df_sub$tag_unassaigned <- df_sub$scRef.tag
+                df_sub$tag_unassaigned[df_sub$AUC < vec.cut_1[one_cell]] <- 'Unassigned'
+                pvalue1 <- rbind(pvalue1, df_sub)
+            }
+            names(pvalue1) <- c('scRef.tag.1', 'AUC.1', 'tag_unassaigned.1')
+            df_unassigned <- pvalue1[cell_ids, ]
+            df_unassigned$tag.final <- pvalue1$scRef.tag.1
+            df_unassigned$tag.final[df_unassigned$tag_unassaigned.1 == 'Unassigned'] <- 'Unassigned'
 
-                if (opt_speed) {
-                    df.cluster <- df.dict[, c("cluster.merge.id", "cluster.level1")]
-                    df.cluster <- unique(df.cluster)
-                    df.cluster <- data.frame(cluster.id = df.cluster$cluster.level1,
-                                             row.names = df.cluster$cluster.merge.id,
-                                             stringsAsFactors = F)
-                }
-                df.tags <- merge(df.tags, df.cluster, by = 'row.names')
-                row.names(df.tags) <- df.tags$Row.names
-                df.tags$Row.names <- NULL
-
-                if (opt_speed) {
-                    df.tags$cluster.merge.id <- row.names(df.tags)
-                    df.tags.merge <- merge(df.tags, df.dict[, c('cluster.merge.id', 'cell.id')],
-                                           by = 'cluster.merge.id')
-                    df.tags.merge$cluster.merge.id <- NULL
-                    row.names(df.tags.merge) <- df.tags.merge$cell.id
-                    df.tags.merge$cell.id <- NULL
-                    df.tags <- df.tags.merge
-                }
-
-                # recall Unassigned
-                df.tags$scRef.tag.pre.recall <- df.tags$scRef.tag
-                cluster.ids <- unique(df.cluster$cluster.id)
-                info.cluster <- data.frame(stringsAsFactors = F)
-                for (cluster.id in cluster.ids) {
-                    sub.tag.cluster <- df.tags[df.tags$cluster.id == cluster.id,]
-                    table.tag <- table(sub.tag.cluster$scRef.tag.1)
-                    table.tag <- table.tag[order(table.tag, decreasing = T)]
-                    main.cell <- names(table.tag[1])
-                    percent.main.cell <- table.tag[1] / dim(sub.tag.cluster)[1]
-                    num.Unassigned <- sum(sub.tag.cluster$scRef.tag.pre.recall == 'Unassigned')
-                    percent.Unassigned <- num.Unassigned / nrow(sub.tag.cluster)
-                    if (percent.Unassigned < threshold_recall) {
-                        if (percent.main.cell > (1- threshold_recall - 0.05)) {
-                            df.tags[(df.tags$cluster.id == cluster.id) &
-                                        (df.tags$scRef.tag == 'Unassigned'), 'scRef.tag'] <-
-                                rep(main.cell, num.Unassigned)
-                        } else {
-                            df.tags[df.tags$cluster.id == cluster.id, 'scRef.tag'] <-
-                                df.tags[df.tags$cluster.id == cluster.id, 'scRef.tag.1']
-                        }
+            df.tags <- merge(df_unassigned, df.dict, by = 'row.names')
+            row.names(df.tags) <- df.tags$Row.names
+            df.tags$Row.names <- NULL
+            df.tags <- df.tags[, c("tag.final", "cluster.merge.id", "cluster.level1")]
+            df.tags$scRef.tag <- df.tags$tag.final
+            all_sub_clusters <- unique(df.tags$cluster.merge.id)
+            for (sub_cluster in all_sub_clusters) {
+                df_sub <- df.tags[df.tags$cluster.merge.id == sub_cluster,]
+                sub_table <- sort(table(df_sub$tag.final), decreasing = T)
+                if (length(sub_table) == 1) {
+                    next
+                } else {
+                    if (sub_table[1]/nrow(df_sub) >= 0.6) {
+                        df.tags$scRef.tag[df.tags$cluster.merge.id == sub_cluster] <- names(sub_table)[1]
                     }
-                    info.cluster <- rbind(
-                        info.cluster,
-                        data.frame(
-                            cluster.id = cluster.id,
-                            percent.Unassigned = percent.Unassigned,
-                            main.cell = main.cell,
-                            percent.main.cell = percent.main.cell,
-                            stringsAsFactors = F
-                        )
-                    )
                 }
+            }
 
-                df.combine <- df.tags[, c("scRef.tag", "log10Pval")]
-                cell_ids <- colnames(exp_sc_mat)
-                df.combine <- df.combine[cell_ids, ]
+            cell_ids <- colnames(exp_sc_mat)
+            df.tags <- df.tags[cell_ids, ]
 
-                gc()
-
-                time2 <- Sys.time()
-                time.scRef <- difftime(time2, time1, units = 'secs')
-                output <- list()
-                output$tag1 <- tag1
-                output$out1 <- out1
-                output$combine.out <- df.tags
-                output$info.cluster <- info.cluster
-                if (opt_speed) {
-                    output$dict.cluster <- df.dict
+            if (cluster_assign) {
+                all_clusters <- unique(df.tags$cluster.level1)
+                df.tags$cluster.tags <- df.tags$scRef.tag
+                for (cluster in all_clusters) {
+                    df_sub <- df.tags[df.tags$cluster.level1 == cluster,]
+                    sub_table <- sort(table(df_sub$tag.final), decreasing = T)
+                    df.tags$cluster.tags[df.tags$cluster.level1 == cluster] <- names(sub_table)[1]
                 }
-                output$ref.markers <- list.cell.genes
-                output$final.out <- df.combine
+                df.combine <- data.frame(scMAGIC.tag = df.tags$cluster.tags, row.names = rownames(df.tags))
+            } else {
+                df.combine <- data.frame(scMAGIC.tag = df.tags$scRef.tag, row.names = rownames(df.tags))
+            }
+
+            gc()
+
+            time2 <- Sys.time()
+            time.scRef <- difftime(time2, time1, units = 'secs')
+            output <- list()
+            output$tag1 <- tag1
+            output$out1 <- out1
+            output$combine.out <- df.tags
+            output$dict.cluster <- df.dict
+            output$ref.markers <- list.cell.genes
+            output$final.out <- df.combine
             output$run.time <- time.scRef
 
             print('Finish!')

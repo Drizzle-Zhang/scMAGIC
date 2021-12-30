@@ -26,29 +26,24 @@ scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{exp_sc_mat}{The expression matrix of query data}
-  \item{type_ref}{The input format of reference data. If you choose bulk data as reference, you can use input formats including 'sum-counts', 'fpkm', 'tpm', 'rpkm'; if you choose single cell data as reference, you can use 'sc-counts' and 'sum-counts'.}
   \item{exp_ref_mat}{The expression matrix of reference data. If the type_ref is 'sc-counts', 'exp_ref_mat' is a single cell counts matrix where the row names correspond to gene symbols and the column names correspond to cell barcodes; if not, 'exp_ref_mat' is a matrix where the row names correspond to gene symbols and the column names correspond to cell type labels.}
   \item{exp_ref_label}{If 'type_ref' is 'sc-counts', 'exp_ref_label' is the vector including well-annotated cell labels corresponding to the cell barcodes of the 'exp_ref_mat'; if not, 'exp_ref_label' is NULL.}
   \item{single_round}{Whether to use single round annotation strategy, by default, scMAGIC use two-round annotation strategy.}
   \item{identify_unassigned}{Whether to label some cells as "Unassigned", by default, it is TRUE. If you think reference covers all cell types in query data, choose FALSE.}
-  \item{atlas}{If reference is from mouse, it is 'MCA'; if reference is from human, it is 'HCL'.}
+  \item{atlas}{If reference is from mouse, it is 'MCA'; if reference is from human, it is 'HCL'; if no reference is avaiable, it is NULL.}
   \item{use_RUVseq}{Whether to use 'RUVSeq' to remove the batch effect between reference and atlas, by default, choose TRUE.}
-%%  \item{percent.high.exp}{Choose genes whose expression values are higher than 'percent.high.exp' of genes as "high expression genes".}
-%%  \item{cluster_num_pc}{Number of PCs used in clustering.}
-%%  \item{cluster_resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
-  \item{opt_speed}{Whether to speed calculation by merge the expression profiles of similar cells.}
+  \item{cluster_num_pc}{Number of PCs used in clustering.}
+  \item{cluster_resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
+%%  \item{opt_speed}{Whether to speed calculation by merge the expression profiles of similar cells.}
   \item{combine_num_cell}{Mean combined cell number in speeding calculation.}
   \item{min_cell}{If the number of validated cells with a reference cell type isn't less than "min_cell", these cells will be added into local reference.}
   \item{method1}{The methods of similarity calculation in first-round annotation, by default, choose 'kendall'.}
   \item{method2}{The methods of similarity calculation in second-round annotation, by default, choose 'multinomial'.}
   \item{corr_use_HVGene1}{Number of genes to select as top variable genes in similarity calculation of first-round annotation}
   \item{corr_use_HVGene2}{Number of genes to select as top variable genes in similarity calculation of second-round annotation}
-  \item{GMM.num_component}{Number of component in GMM, by default, it is NULL, it means that GMM choose the number by BIC.}
-  \item{GMM.floor_cutoff}{If confidence score is lower than 'GMM.floor_cutoff', we consider the corresponding label incorrect.}
-  \item{GMM.ceiling_cutoff}{If confidence score is higher than 'GMM.ceiling_cutoff', we consider the corresponding label correct.}
-  \item{GMM.neg_cutoff}{If confidence scores of some cells are lower than 'GMM.neg_cutoff', the cells would be regarded as negative control.}
-  \item{threshold_recall}{If the proportion of 'Unassigned' cells is lower than 'threshold.recall' in a certain cluster, labels of the cells would be converted to main cell type in the cluster.}
+  \item{threshold}{If confidence score is lower than 'threshold', we consider the corresponding label incorrect.}
   \item{num_threads}{Number of CPU used in calculation.}
+  \item{cluster_assign}{Whether to annotate single cells by assigning a cell type to each cluster.}
   \item{simple_output}{Whether to output intermediate results.}
 }
 \details{
