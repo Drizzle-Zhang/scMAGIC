@@ -1143,7 +1143,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     if (median(colSums(exp_sc_mat != 0)) < 1200) {
         base_thre <- 0.23
     } else {
-        base_thre <- 0.18
+        base_thre <- 0.17
     }
     if (threshold <= 5) {
         auc_gap <- (5-threshold)*2 + base_thre
