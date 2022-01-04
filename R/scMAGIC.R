@@ -1339,7 +1339,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         }
         if (method1 != 'multinomial') {
             out1 <- .get_cor(ref.in, similarity.in, method = method1, num_threads = num_threads)
-            tag1 <- .get_tag_max(t(out1))
+            out1 <- t(out1)
+            tag1 <- .get_tag_max(out1)
         } else {
             test_set <- query_set[, etest_gene]
             pred_tags <- SciBet(train_set, test_set, k=round(num_feature/2), result = 'list')
@@ -1516,7 +1517,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         }
         if (method2 != 'multinomial') {
             out2 <- .get_cor(ref.in, similarity.in, method = method2, num_threads = num_threads)
-            tag2 <- .get_tag_max(t(out2))
+            out2 <- t(out2)
+            tag2 <- .get_tag_max(out2)
         } else {
             test_set <- query_set
             pred_tags <- SciBet(train_set, test_set, k=num_feature)
