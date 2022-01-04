@@ -632,7 +632,7 @@
 
 
 scMAGIC_atlas <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
-                    type_ref = 'sc-counts', single_round = F,
+                    type_ref = 'sum-counts', single_round = F,
                     identify_unassigned = T, atlas = 'MCA', use_RUVseq = T,
                     cluster_num_pc = 50, cluster_resolution = 3,
                     opt_speed = NULL, combine_num_cell = NULL, min_cell = NULL,
