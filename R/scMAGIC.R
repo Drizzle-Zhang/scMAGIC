@@ -1143,7 +1143,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     if (median(colSums(exp_sc_mat != 0)) < 1200) {
         base_thre <- 0.23
     } else {
-        base_thre <- 0.17
+        base_thre <- 0.16
     }
     if (threshold <= 5) {
         auc_gap <- (5-threshold)*2 + base_thre
@@ -1327,7 +1327,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         # table(label_sc, pred_tags)
     } else {
         if (!is.null(corr_use_HVGene1)) {
-            num_feature <- corr_use_HVGene1/2
+            num_feature <- corr_use_HVGene1
             train_set <- as.data.frame(t(exp_ref_mat.cell))/1.0
             train_set$label <- exp_ref_label
             HVG <- SelectGene(train_set, k = num_feature)
