@@ -73,7 +73,7 @@ label_sc <-list.demo$label
 #### Cell type classification by scMAGIC
 
 ```R
-output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, num_threads = 4)
+output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, atlas = 'MCA', num_threads = 4)
 pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
 ```
 
@@ -138,7 +138,7 @@ exp_sc_mat <- list.target$mat_exp
 label_sc <-list.target$label
 # print runtime
 time1 <- Sys.time()
-output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, num_threads = 10)
+output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, atlas = 'MCA', num_threads = 10)
 time2 <- Sys.time()
 difftime(time2, time1, units = 'mins')
 # Time difference of 3.281353 mins
@@ -172,7 +172,7 @@ label_sc <-list.target$label
 # load MCA
 data("MCA_ref")
 # run scMAGIC
-output.scMAGIC <- scMAGIC_atlas(exp_sc_mat, MCA_ref,
+output.scMAGIC <- scMAGIC_atlas(exp_sc_mat, MCA_ref, atlas = 'MCA',
                                 type_ref = 'sum-counts', use_RUVseq = F,
                                 min_cell = 5, num_threads = 10)
 pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
