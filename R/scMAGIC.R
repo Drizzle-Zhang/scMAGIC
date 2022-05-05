@@ -456,7 +456,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         coef <- 0.5*(1+n.neighbor-i)
         if (length(genes.ref) < (coef*topN)) {
             sub_markers <- sub_markers[order(sub_markers$p_val),]
-            genes.ref <- row.names(sub_markers)[1:(coef*topN)]
+            genes.ref <- row.names(sub_markers)[1:min(coef*topN, nrow(sub_markers))]
         }
         i <- i + 1
     }
@@ -660,7 +660,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         coef <- 0.5*(1+n.neighbor-i)
         if (length(genes.ref) < (coef*topN)) {
             sub_markers <- sub_markers[order(sub_markers$p_val),]
-            genes.ref <- row.names(sub_markers)[1:(coef*topN)]
+            genes.ref <- row.names(sub_markers)[1:min(coef*topN, nrow(sub_markers))]
         }
         i <- i + 1
     }
@@ -785,6 +785,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     out <- list()
     out[['list.cell.genes']] <- RUN
     out[['exp_ref_mat']] <- LocalRef.sum
+    out[['list_near_cell']] <- list_near_cell
     return(out)
 
 }
@@ -1100,8 +1101,8 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
             cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap])
             # cut_AUC <- mean_AUC[cut_class]
             df.sub$class_AUC <- model_AUC$classification
-            cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
-            # cut_AUC <- quantile(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)], 0.95)
+            # cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
+            cut_AUC <- quantile(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)], 0.99)
         } else {
             cut_AUC <- 0
         }
@@ -1488,6 +1489,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             )
     )
     local.cell.genes <- out.markers[['list.cell.genes']]
+    list_near_cell <- out.markers[['list_near_cell']]
     local.cell.genes_merge <- list()
     for (one_cell in names(local.cell.genes)) {
         local.cell.genes_merge[[one_cell]] <-
