@@ -1330,7 +1330,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     } else {
         if (!is.null(corr_use_HVGene1)) {
             num_feature <- corr_use_HVGene1/2
-            train_set <- as.data.frame(t(exp_ref_mat.cell))/1.0
+            train_set <- as.data.frame(t(as.matrix(exp_ref_mat.cell)))/1.0
             train_set$label <- exp_ref_label
             HVG <- SelectGene(train_set, k = num_feature)
             similarity.in <- df.exp.merge[HVG, ]
