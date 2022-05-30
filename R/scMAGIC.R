@@ -443,7 +443,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     genes.ref <- genes.ref.cell
 
     # genes.ref = genes.high
-    n.neighbor <- 3
+    n.neighbor <- min(3, length(cell.ref) - 1)
     i <- 1
     for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
         sub_seurat <- subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near))
@@ -647,7 +647,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     genes.ref.cell <- row.names(markers[(markers$p_val_adj < 0.05),])
     genes.ref <- genes.ref.cell
 
-    n.neighbor <- 3
+    n.neighbor <- min(3, length(cell.ref) - 1)
     i <- 1
     for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
         sub_seurat <- subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near))
