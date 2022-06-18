@@ -443,29 +443,37 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     genes.ref <- genes.ref.cell
 
     # genes.ref = genes.high
-    n.neighbor <- min(3, length(cell.ref) - 1)
-    i <- 1
-    for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
-        sub_seurat <- subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near))
-        sub_markers <- FindMarkers(sub_seurat, ident.1 = cell, group.by = 'original.label',
-                                   only.pos = T, features = genes.ref.cell, min.cells.group = 1,
-                                   min.pct = 0.1, min.diff.pct = 0,
-                                   logfc.threshold = 0.25, verbose = F)
-        sub_markers <- sub_markers[order(sub_markers$p_val),]
-        genes.ref <- intersect(genes.ref, row.names(sub_markers[(sub_markers$p_val < 0.05),]))
-        coef <- 0.5*(1+n.neighbor-i)
-        if (length(genes.ref) < (coef*topN)) {
+    n.neighbor <- min(3, length(list_near_cell[[cell]]) - 1)
+    if (n.neighbor > 1) {
+        i <- 1
+        for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
+            sub_seurat <- subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near))
+            sub_markers <- FindMarkers(sub_seurat, ident.1 = cell, group.by = 'original.label',
+                                       only.pos = T, features = genes.ref.cell, min.cells.group = 1,
+                                       min.pct = 0.1, min.diff.pct = 0,
+                                       logfc.threshold = 0.25, verbose = F)
             sub_markers <- sub_markers[order(sub_markers$p_val),]
-            genes.ref <- row.names(sub_markers)[1:min(coef*topN, nrow(sub_markers))]
+            genes.ref <- intersect(genes.ref, row.names(sub_markers[(sub_markers$p_val < 0.05),]))
+            coef <- 0.5*(1+n.neighbor-i)
+            if (length(genes.ref) < (coef*topN)) {
+                sub_markers <- sub_markers[order(sub_markers$p_val),]
+                genes.ref <- row.names(sub_markers)[1:min(coef*topN, nrow(sub_markers))]
+            }
+            i <- i + 1
         }
-        i <- i + 1
+        if (length(genes.ref) > (2*topN)) {
+            sub_markers <- sub_markers[order(sub_markers$p_val),]
+            genes.ref <- row.names(sub_markers)[1:(2*topN)]
+        }
+        use.genes <- genes.ref
+    } else {
+        if (length(genes.ref) > (2*topN)) {
+            sub_markers <- markers[order(markers$p_val),]
+            genes.ref <- row.names(sub_markers)[1:(2*topN)]
+        }
+        use.genes <- genes.ref
     }
 
-    if (length(genes.ref) > (2*topN)) {
-        sub_markers <- sub_markers[order(sub_markers$p_val),]
-        genes.ref <- row.names(sub_markers)[1:(2*topN)]
-    }
-    use.genes <- genes.ref
 
     # diff in Atlas
     if (!is.null(mtx.combat.use)) {
@@ -516,6 +524,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     if (type_ref %in% c('fpkm', 'tpm', 'rpkm', 'bulk')) {
         exp_ref_mat <- as.matrix(log1p(exp_ref_mat))
     }
+    exp_ref_mat <- na.omit(exp_ref_mat)
     cell.ref <- dimnames(exp_ref_mat)[[2]]
 
     if (!is.null(seurat.out.group)) {
@@ -557,12 +566,17 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     }
 
     mat_cor <- cor(exp_ref_mat)
+    mat_cor[is.na(mat_cor)] <- 0
     # library(pcaPP)
     # cor.fk(exp_ref_mat)
     list_near_cell <- list()
     for (cell in cell.ref) {
-        vec_cor <- mat_cor[cell,]
-        list_near_cell[[cell]] <- names(sort(vec_cor, decreasing = T))[2:min(length(cell.ref), 4)]
+        vec_cor <- mat_cor[cell,][mat_cor[cell,] > 0.6]
+        if (length(vec_cor) < 2) {
+            list_near_cell[[cell]] <- c()
+        } else {
+            list_near_cell[[cell]] <- names(sort(vec_cor, decreasing = T))[2:min(length(vec_cor), 4)]
+        }
     }
 
     topN <- base.topN
@@ -1020,8 +1034,18 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 
         cell_markers <- list.cell.genes[[cell]]
         cells_near <- list_near_cell[[cell]]
-        genes_near <- unique(c(list.cell.genes[[cells_near[1]]], list.cell.genes[[cells_near[2]]],
-                               list.cell.genes[[cells_near[3]]]))
+        genes_near <- c()
+        if (length(cells_near) > 0) {
+            for (i in 1:length(cells_near)) {
+                genes_near <- c(genes_near, list.cell.genes[[cells_near[i]]])
+            }
+        } else {
+            other_ref <- setdiff(names(list.cell.genes), cell)
+            for (c in sample(other_ref, min(2, length(other_ref)))) {
+                genes_near <- c(genes_near, list.cell.genes[[c]])
+            }
+        }
+
         # genes_near <- list.cell.genes[[cells_near[1]]]
         # genes_near <- unique(c(list.cell.genes[[cells_near[1]]], list.cell.genes[[cells_near[2]]]))
         num_genes <- min(length(cell_markers), length(genes_near))
@@ -1694,13 +1718,15 @@ transformHomoloGene <- function(exp_sc_mat, inTaxID = 9606, outTaxID = 10090) {
 
 
 scMAGIC_Seurat <- function(seurat.query, seurat.ref, atlas = 'MCA', corr_use_HVGene = 2000,
-                           num_threads = 4) {
+                           threshold = 5, cluster_resolution = 3, num_threads = 4) {
     exp_sc_mat <- seurat.query@assays$RNA@counts
     exp_ref_mat <- seurat.ref@assays$RNA@counts
     exp_ref_label <- seurat.ref@meta.data$celltype
     output.scMAGIC <- scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label,
                               atlas = atlas, corr_use_HVGene1 = corr_use_HVGene,
                               corr_use_HVGene2 = corr_use_HVGene,
+                              threshold = threshold,
+                              cluster_resolution = cluster_resolution,
                               num_threads = num_threads)
     pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
     seurat.query$prediction_celltype <- pred.scMAGIC
