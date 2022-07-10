@@ -4,8 +4,8 @@
 #######################################
 
 get_overlap_genes <- function(exp_sc_mat, exp_ref_mat) {
-    exp_ref_mat <- as.data.frame(exp_ref_mat)
-    exp_sc_mat <- as.data.frame(exp_sc_mat)
+    exp_ref_mat <- as.data.frame(as.matrix(exp_ref_mat))
+    exp_sc_mat <- as.data.frame(as.matrix(exp_sc_mat))
     # get overlap genes
     exp_sc_mat <- exp_sc_mat[order(rownames(exp_sc_mat)),]
     exp_ref_mat <- exp_ref_mat[order(rownames(exp_ref_mat)),]
@@ -1306,12 +1306,10 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         rownames(df.dict.merge) <- df.dict.merge$cluster.merge.id
         df.dict.merge <- df.dict.merge[colnames(df.exp.merge),]
         min_cell <- ceiling(min_cell / combine_num_cell)
-        query_set <- as.data.frame(t(df.exp.merge))/1.0
-        query_set$label <- df.dict.merge$cluster.level1
+        # query_set <- as.data.frame(t(df.exp.merge))/1.0
+        # query_set$label <- df.dict.merge$cluster.level1
     } else {
         df.exp.merge <- exp_sc_mat
-        query_set <- as.data.frame(t(df.exp.merge))/1.0
-        query_set$label <- df.cluster$cluster.id
     }
 
     gene_not0 <- rownames(df.exp.merge)[rowSums(df.exp.merge)!=0]
@@ -1339,6 +1337,10 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     # rm(exp_sc_mat)
     gc()
     df.exp.merge <- as.matrix(df.exp.merge)
+    if (method1 == 'multinomial' | method2 == 'multinomial') {
+        query_set <- as.data.frame(t(as.matrix(df.exp.merge)))/1.0
+        query_set$label <- df.cluster$cluster.id
+    }
 
     print('First-round annotation:')
     # print(method1)
