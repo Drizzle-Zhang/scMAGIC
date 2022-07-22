@@ -1095,7 +1095,8 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     sub_AUC <- df.sub[, c('AUC', 'diff')]
     cell_back <- list_tags1_back[[cell]]
     back_value <- min(quantile(cell_back,0.9), 0.05)
-    if (sum(df.tags1$scRef.tag == cell) < 5) {
+    prop_0 <- sum(df.sub$AUC == 0) / dim(df.sub)[1]
+    if (sum(df.tags1$scRef.tag == cell) < 5 | prop_0 > 0.95) {
         one_out <- list()
         one_out[[1]] <- cell
         one_out[[2]] <- c(max(max(sub_AUC$AUC), back_value + 0.2),
