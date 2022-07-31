@@ -14,8 +14,9 @@ and scMAGIC can assign labels to cells in query dataset based on reference.
 scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         single_round = F, identify_unassigned = T,
         atlas = c(NULL, 'MCA', 'HCL'), use.RUVseq = T,
-        cluster_num_pc = 50, cluster_resolution = 3,
-        combine_num_cell = NULL, min_cell = 1,
+        method_findmarker = c('COSG', 'Seurat'),
+        percent_high_exp = 0.7, num_marker_gene = 100,
+        cluster_num_pc = 50, cluster_resolution = 3, min_cell = 1,
         method1 = ('kendall', 'spearman', 'pearson', 'cosine', 'multinomial'),
         method2 = ('multinomial', 'kendall', 'spearman', 'pearson', 'cosine', 'randomforest'),
         corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
@@ -30,10 +31,11 @@ scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
   \item{identify_unassigned}{Whether to label some cells as "Unassigned", by default, it is TRUE. If you think reference covers all cell types in query data, choose FALSE.}
   \item{atlas}{If reference is from mouse, it is 'MCA'; if reference is from human, it is 'HCL'; if no reference is avaiable, it is NULL.}
   \item{use_RUVseq}{Whether to use 'RUVSeq' to remove the batch effect between reference and atlas, by default, choose TRUE.}
+  \item{method_findmarker}{Method to find marker genes.}
+  \item{percent_high_exp}{In each cell type, the genes whose expression values are higher than "percent_high_exp" of genes are selected.}
+  \item{num_marker_gene}{Number of each cell type's marker genes.}
   \item{cluster_num_pc}{Number of PCs used in clustering.}
   \item{cluster_resolution}{Resolution of the clustering algorithm, if you want get more clusters, you can give a larger resolution.}
-%%  \item{opt_speed}{Whether to speed calculation by merge the expression profiles of similar cells.}
-  \item{combine_num_cell}{Mean combined cell number in speeding calculation.}
   \item{min_cell}{If the number of validated cells with a reference cell type isn't less than "min_cell", these cells will be added into local reference.}
   \item{method1}{The methods of similarity calculation in first-round annotation, by default, choose 'kendall'.}
   \item{method2}{The methods of similarity calculation in second-round annotation, by default, choose 'multinomial'.}

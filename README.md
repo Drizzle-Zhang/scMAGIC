@@ -32,7 +32,8 @@ BiocManager::install('RUVSeq')      # 1.22.0
 install.packages('mclust')          # 5.4.6
 install.packages('homologene')      # 1.4.68.19.3.27
 install.packages("devtools")
-devtools::install_github("PaulingLiu/scibet") # This package provides faster methods to select features and calculate multinomial metric.
+devtools::install_github("PaulingLiu/scibet") 
+remotes::install_github(repo = 'genecell/COSGR')
 BiocManager::install("AUCell")		# 1.10.0
 install.packages("randomForest")    # 4.6-14
 devtools::install_github("Drizzle-Zhang/scMAGIC")
@@ -120,7 +121,7 @@ seurat.query <- scMAGIC_Seurat(seurat.query, seurat.ref)
 
 ### Ⅱ. Annotation of large dataset
 
-If the target dataset contains more than 5000 cells, scMAGIC will accelerate the computation by merge similar cells automatically. Here, we identify cell types of more than 20000 cells in Campbell dataset.
+Here, we identify cell types of all cells in Campbell dataset without sampling.
 
 #### Download dataset
 
@@ -136,18 +137,14 @@ library(scMAGIC)
 list.target <- readRDS('Campbell.Rdata')
 exp_sc_mat <- list.target$mat_exp
 label_sc <-list.target$label
-# print runtime
-time1 <- Sys.time()
+
 output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, atlas = 'MCA', num_threads = 10)
-time2 <- Sys.time()
-difftime(time2, time1, units = 'mins')
-# Time difference of 3.281353 mins
 
 # classification results
 table(label_sc, pred.scMAGIC)
 ```
 
-Results of annotation are showed in three UMAP plots as follows: the left is cell type labels from Campbell et al; the right is scMAGIC assignments using Tasic dataset as reference.
+Results of annotation are showed in two UMAP plots as follows: the left is cell type labels from Campbell et al; the right is scMAGIC assignments using Tasic dataset as reference.
 
 <img src="https://github.com/Drizzle-Zhang/scMAGIC/blob/main/figures/large_dataset.png" width="900">
 
