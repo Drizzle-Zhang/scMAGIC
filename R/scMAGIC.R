@@ -4,8 +4,8 @@
 #######################################
 
 get_overlap_genes <- function(exp_sc_mat, exp_ref_mat) {
-    exp_ref_mat <- as.data.frame(as.matrix(exp_ref_mat))
-    exp_sc_mat <- as.data.frame(as.matrix(exp_sc_mat))
+    # exp_ref_mat <- as.data.frame(as.matrix(exp_ref_mat))
+    # exp_sc_mat <- as.data.frame(as.matrix(exp_sc_mat))
     # get overlap genes
     exp_sc_mat <- exp_sc_mat[order(rownames(exp_sc_mat)),]
     exp_ref_mat <- exp_ref_mat[order(rownames(exp_ref_mat)),]
@@ -330,6 +330,40 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     return(NewRef)
 }
 
+getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
+                        block = NULL, p_adj = "fdr", fpkm = T) {
+    # limma function
+    if (is.null(esetm)) {
+        cat(
+            "esetm: gene expression matrix",
+            "group: factor: \"c\"/\"d\"",
+            "pair: TRUE/FALSE*",
+            "block: e.g.1 2 2 1 if paired; blank if not",
+            "p_adj: p.adjust, fdr* ",
+            "fpkm: TRUE/FALSE*",
+            sep = "\n"
+        )
+    } else{
+        library(limma, verbose = F)
+        if (pair) {
+            design <- model.matrix( ~ block + group)
+        } else{
+            design <- model.matrix( ~ group)
+        }
+        suppressWarnings(fit <- lmFit(esetm, design))
+        if (fpkm) {
+            suppressWarnings(fit <- eBayes(fit, trend = T, robust = T))
+        } else{
+            suppressWarnings(fit <- eBayes(fit))
+        }
+        x <- topTable(fit, number = nrow(esetm), adjust.method = p_adj,
+                      coef = "group2")
+        x <- x[!is.na(row.names(x)), ]
+        x <- x[!duplicated(row.names(x)), ]
+        return(x)
+    }
+}
+
 
 .imoprt_outgroup <- function(out.group = 'MCA', normalization = T, use_RUVseq = T) {
     if (class(out.group)[1] %in% c("data.frame", "matrix")) {
@@ -380,6 +414,88 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 }
 
 
+.find_markers_cell_cosg <- function(cell.ref, list_near_cell, exp_ref_mat,
+                                    exp_ref_mat.cell, exp_ref_label,
+                                    mtx.combat, percent.high.exp,
+                                    mtx.combat.use, topN, i) {
+    library(Seurat, verbose = F)
+    library(COSG)
+    cell <- cell.ref[i]
+    # print(cell)
+    vec.cell <- mtx.combat[, paste0('Ref.', cell)]
+    vec.ref <- exp_ref_mat[, cell]
+    vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
+    # high expression genes
+    genes.high <- names(vec.ref.high)
+    # genes.high <- rownames(exp_ref_mat.cell)
+
+    # diff in local reference and negative reference
+    seurat.Ref.cell <- CreateSeuratObject(counts = exp_ref_mat.cell[genes.high,], project = "Ref")
+    seurat.Ref.cell <- NormalizeData(seurat.Ref.cell, verbose = F)
+    seurat.Ref.cell@meta.data$original.label <- exp_ref_label
+    Idents(seurat.Ref.cell) <- exp_ref_label
+    n.neighbor <- min(3, length(list_near_cell[[cell]]))
+    markers <-
+        cosg(seurat.Ref.cell, groups='all', assay='RNA',
+             slot='data', mu=2, n_genes_user=topN*(n.neighbor+1))
+    genes.ref <- markers$names[,cell]
+
+    if (n.neighbor > 1) {
+        i <- 1
+        for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
+            sub_seurat <-
+                subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near),
+                       feature = genes.ref)
+            sub_markers <- cosg(sub_seurat, groups=c(cell, cell_near), assay='RNA',
+                                slot='data', mu=1, n_genes_user=topN*(n.neighbor-i+1))
+            sub_markers_genes <- sub_markers$names[,cell]
+            genes.ref <- intersect(genes.ref, sub_markers_genes)
+            coef <- 0.5*(1+n.neighbor-i)
+            if (length(genes.ref) < (coef*topN)) {
+                genes.ref <- sub_markers_genes
+            }
+            i <- i + 1
+        }
+        use.genes <- genes.ref
+    } else {
+        if (length(genes.ref) > (topN)) {
+            df_marker <- data.frame(name = markers$names[,cell], score=markers$scores[,cell])
+            colnames(df_marker) <- c('name', 'score')
+            df_marker <- df_marker[order(df_marker$score, decreasing = T),]
+            genes.ref <- df_marker$name[1:(topN)]
+        }
+        use.genes <- genes.ref
+    }
+
+
+    # diff in Atlas
+    if (!is.null(mtx.combat.use)) {
+        if (length(use.genes) > 4*topN) {
+            mtx.limma <- cbind(mtx.combat.use, vec.cell)
+            bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
+            res.limma.MCA <- getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+            res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
+            genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
+            if (length(genes.diff) < (topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:(topN)]
+            }
+            if (length(genes.diff) > (3*topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:(3*topN)]
+            }
+        } else {
+            genes.diff <- use.genes
+        }
+    }else {
+        genes.diff <- use.genes
+    }
+
+    return(genes.diff)
+
+}
+
+
 .find_markers_cell <- function(cell.ref, list_near_cell, exp_ref_mat.cell, exp_ref_label,
                                mtx.combat, percent.high.exp,
                                mtx.combat.use, topN, i) {
@@ -394,41 +510,6 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     # genes.high <- intersect(names(vec.cell.high), names(vec.ref.high))
     # genes.high <- names(vec.ref.high)
     genes.high <- rownames(exp_ref_mat.cell)
-
-    # function
-    .getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
-                            block = NULL, p_adj = "fdr", fpkm = T) {
-        # limma function
-        if (is.null(esetm)) {
-            cat(
-                "esetm: gene expression matrix",
-                "group: factor: \"c\"/\"d\"",
-                "pair: TRUE/FALSE*",
-                "block: e.g.1 2 2 1 if paired; blank if not",
-                "p_adj: p.adjust, fdr* ",
-                "fpkm: TRUE/FALSE*",
-                sep = "\n"
-            )
-        } else{
-            library(limma, verbose = F)
-            if (pair) {
-                design <- model.matrix( ~ block + group)
-            } else{
-                design <- model.matrix( ~ group)
-            }
-            suppressWarnings(fit <- lmFit(esetm, design))
-            if (fpkm) {
-                suppressWarnings(fit <- eBayes(fit, trend = T, robust = T))
-            } else{
-                suppressWarnings(fit <- eBayes(fit))
-            }
-            x <- topTable(fit, number = nrow(esetm), adjust.method = p_adj,
-                          coef = "group2")
-            x <- x[!is.na(row.names(x)), ]
-            x <- x[!duplicated(row.names(x)), ]
-            return(x)
-        }
-    }
 
     # diff in local reference and negative reference
     seurat.Ref.cell <- CreateSeuratObject(counts = exp_ref_mat.cell, project = "Ref")
@@ -480,7 +561,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         if (length(use.genes) > 4*topN) {
             mtx.limma <- cbind(mtx.combat.use, vec.cell)
             bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
-            res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+            res.limma.MCA <- getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
             res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
             genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
             if (length(genes.diff) < (topN)) {
@@ -503,16 +584,17 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 }
 
 .find_markers <- function(exp_ref_mat, exp_ref_mat.cell, exp_ref_label, seurat.out.group,
-                          type_ref = 'sum-counts', use_RUVseq = T,
+                          type_ref = 'sum-counts', use_RUVseq = T, method_findmarker = 'COSG',
                           base.topN = 50, percent.high.exp = 0.8, num_threads = 6) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
-    if (!is.null(base.topN)) {
-        base.topN <- base.topN
-    } else {
-        stop('Error in finding markers: provide incorrect parameters')
-    }
+    topN <- base.topN
+    # if (!is.null(base.topN)) {
+    #     base.topN <- base.topN
+    # } else {
+    #     stop('Error in finding markers: provide incorrect parameters')
+    # }
 
     # transform count to fpm
     if (type_ref == 'sum-counts') {
@@ -571,7 +653,7 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     # cor.fk(exp_ref_mat)
     list_near_cell <- list()
     for (cell in cell.ref) {
-        vec_cor <- mat_cor[cell,][mat_cor[cell,] > 0.6]
+        vec_cor <- mat_cor[cell,][mat_cor[cell,] > 0.7]
         if (length(vec_cor) < 2) {
             list_near_cell[[cell]] <- c()
         } else {
@@ -579,19 +661,34 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         }
     }
 
-    topN <- base.topN
-    cl = makeCluster(num_threads, outfile = '')
-    # clusterExport(cl, '.getDEgeneF')
-    RUN <- parLapply(
-        cl = cl,
-        1:length(cell.ref),
-        .find_markers_cell,
-        cell.ref = cell.ref, list_near_cell = list_near_cell,
-        exp_ref_mat.cell = exp_ref_mat.cell, exp_ref_label = exp_ref_label,
-        mtx.combat = mtx.combat, percent.high.exp = percent.high.exp,
-        mtx.combat.use = mtx.combat.use, topN = topN
-    )
-    stopCluster(cl)
+    if (method_findmarker == 'COSG') {
+        RUN <- mclapply(
+            X = 1:length(cell.ref),
+            FUN = .find_markers_cell_cosg,
+            cell.ref = cell.ref, list_near_cell = list_near_cell,
+            exp_ref_mat = exp_ref_mat,
+            exp_ref_mat.cell = exp_ref_mat.cell, exp_ref_label = exp_ref_label,
+            mtx.combat = mtx.combat, percent.high.exp = percent.high.exp,
+            mtx.combat.use = mtx.combat.use, topN = topN,
+            mc.cores = num_threads
+        )
+    }
+
+    if (method_findmarker == 'Seurat') {
+        cl = makeCluster(num_threads, outfile = '', type = 'FORK')
+        clusterExport(cl, 'getDEgeneF')
+        RUN <- parLapply(
+            cl = cl,
+            1:length(cell.ref),
+            .find_markers_cell_cosg,
+            cell.ref = cell.ref, list_near_cell = list_near_cell,
+            exp_ref_mat = exp_ref_mat,
+            exp_ref_mat.cell = exp_ref_mat.cell, exp_ref_label = exp_ref_label,
+            mtx.combat = mtx.combat, topN = 50, percent.high.exp = percent.high.exp,
+            mtx.combat.use = mtx.combat.use
+        )
+        stopCluster(cl)
+    }
     names(RUN) <- cell.ref
 
     out <- list()
@@ -613,41 +710,6 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     # vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
     # high expression genes
     genes.high <- names(select.exp)
-
-    # function
-    .getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
-                            block = NULL, p_adj = "fdr", fpkm = T) {
-        # limma function
-        if (is.null(esetm)) {
-            cat(
-                "esetm: gene expression matrix",
-                "group: factor: \"c\"/\"d\"",
-                "pair: TRUE/FALSE*",
-                "block: e.g.1 2 2 1 if paired; blank if not",
-                "p_adj: p.adjust, fdr* ",
-                "fpkm: TRUE/FALSE*",
-                sep = "\n"
-            )
-        } else{
-            library(limma, verbose = F)
-            if (pair) {
-                design <- model.matrix( ~ block + group)
-            } else{
-                design <- model.matrix( ~ group)
-            }
-            suppressWarnings(fit <- lmFit(esetm, design))
-            if (fpkm) {
-                suppressWarnings(fit <- eBayes(fit, trend = T, robust = T))
-            } else{
-                suppressWarnings(fit <- eBayes(fit))
-            }
-            x <- topTable(fit, number = nrow(esetm), adjust.method = p_adj,
-                          coef = "group2")
-            x <- x[!is.na(row.names(x)), ]
-            x <- x[!duplicated(row.names(x)), ]
-            return(x)
-        }
-    }
 
     # diff in local reference and negative reference
     seurat.Ref.cell <- CreateSeuratObject(counts = select.exp, project = "Ref")
@@ -690,7 +752,86 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         if (length(use.genes) > 4*topN) {
             mtx.limma <- cbind(mtx.combat.use, vec.cell)
             bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
-            res.limma.MCA <- .getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+            res.limma.MCA <- getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
+            res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
+            genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
+            if (length(genes.diff) < (topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:min(topN, nrow(res.limma.MCA))]
+            }
+            if (length(genes.diff) > (2*topN)) {
+                res.limma.MCA <- res.limma.MCA[order(res.limma.MCA$P.Value),]
+                genes.diff <- row.names(res.limma.MCA)[1:(2*topN)]
+            }
+        } else {
+            genes.diff <- use.genes
+        }
+    } else {
+        genes.diff <- use.genes
+    }
+
+    return(genes.diff)
+
+}
+
+
+.find_markers_sc_cell_cosg <- function(cell.ref, list_near_cell, mtx.combat, LocalRef.sum, percent.high.exp,
+                                  select.exp, vec.tag1, list.localNeg, mtx.combat.use, topN, i) {
+    library(Seurat, verbose = F)
+    library(COSG)
+    cell <- cell.ref[i]
+    # print(cell)
+    vec.cell <- mtx.combat[, paste0('Ref.', cell)]
+    # vec.cell.high <- vec.cell[vec.cell > quantile(vec.cell, percent.high.exp)]
+    vec.ref <- LocalRef.sum[, cell]
+    vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
+    # high expression genes
+    # genes.high <- names(select.exp)
+
+    # diff in local reference and negative reference
+    seurat.Ref.cell <- CreateSeuratObject(counts = select.exp, project = "Ref")
+    seurat.Ref.cell <- NormalizeData(seurat.Ref.cell, verbose = F)
+    seurat.Ref.cell@meta.data$original.label <- vec.tag1
+    Idents(seurat.Ref.cell) <- vec.tag1
+    n.neighbor <- min(3, length(list_near_cell[[cell]]))
+    markers <-
+        cosg(seurat.Ref.cell, groups='all', assay='RNA',
+             slot='data', mu=1, n_genes_user=topN*(n.neighbor+1))
+    genes.ref <- markers$names[,cell]
+
+    if (n.neighbor > 1) {
+        i <- 1
+        for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
+            sub_seurat <-
+                subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near),
+                       feature = genes.ref)
+            sub_markers <- cosg(sub_seurat, groups=c(cell, cell_near), assay='RNA',
+                                slot='data', mu=1, n_genes_user=topN*(n.neighbor-i+1))
+            sub_markers_genes <- sub_markers$names[,cell]
+            genes.ref <- intersect(genes.ref, sub_markers_genes)
+            coef <- 0.5*(1+n.neighbor-i)
+            if (length(genes.ref) < (coef*topN)) {
+                genes.ref <- sub_markers_genes
+            }
+            i <- i + 1
+        }
+        use.genes <- genes.ref
+    } else {
+        if (length(genes.ref) > (topN)) {
+            df_marker <- data.frame(name = markers$names[,cell], score=markers$scores[,cell])
+            colnames(df_marker) <- c('name', 'score')
+            df_marker <- df_marker[order(df_marker$score, decreasing = T),]
+            genes.ref <- df_marker$name[1:(topN)]
+        }
+        use.genes <- genes.ref
+    }
+
+    # diff in Atlas
+    if (!is.null(mtx.combat.use)) {
+        if (length(use.genes) > 4*topN) {
+            mtx.limma <- cbind(mtx.combat.use, vec.cell)
+            bool.atlas.cell <- as.factor(c(rep('1', dim(mtx.combat.use)[2]), '2'))
+            res.limma.MCA <- getDEgeneF(mtx.limma[use.genes, ], bool.atlas.cell)
             res.limma.MCA <- res.limma.MCA[res.limma.MCA$logFC > 0,]
             genes.diff <- row.names(res.limma.MCA[(res.limma.MCA$P.Value < 0.001),])
             if (length(genes.diff) < (topN)) {
@@ -714,17 +855,18 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 
 
 .find_markers_sc <- function(select.exp, vec.tag1, LocalRef,
-                             seurat.out.group, list.localNeg,
+                             seurat.out.group, list.localNeg, method_findmarker = 'COSG',
                              use_RUVseq = T, num_threads = 6,
                              base.topN = 50, percent.high.exp = 0.80) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
-    if (!is.null(base.topN)) {
-        base.topN <- base.topN
-    } else {
-        stop('Error in finding markers: provide incorrect parameters')
-    }
+    topN <- base.topN
+    # if (!is.null(base.topN)) {
+    #     base.topN <- base.topN
+    # } else {
+    #     stop('Error in finding markers: provide incorrect parameters')
+    # }
 
     # transform count to fpm
     seurat.Ref.sum <- CreateSeuratObject(counts = LocalRef, project = "Ref")
@@ -773,27 +915,45 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     }
 
     mat_cor <- cor(LocalRef.sum)
+    mat_cor[is.na(mat_cor)] <- 0
     # library(pcaPP)
     # cor.fk(exp_ref_mat)
     list_near_cell <- list()
     for (cell in cell.ref) {
-        vec_cor <- mat_cor[cell,]
-        list_near_cell[[cell]] <- names(sort(vec_cor, decreasing = T))[2:min(length(cell.ref), 4)]
+        vec_cor <- mat_cor[cell,][mat_cor[cell,] > 0.7]
+        if (length(vec_cor) < 2) {
+            list_near_cell[[cell]] <- c()
+        } else {
+            list_near_cell[[cell]] <- names(sort(vec_cor, decreasing = T))[2:min(length(vec_cor), 4)]
+        }
     }
 
-    topN <- base.topN
-    cl = makeCluster(num_threads, outfile = '')
-    # clusterExport(cl, '.getDEgeneF')
-    RUN <- parLapply(
-        cl = cl,
-        1:length(cell.ref),
-        .find_markers_sc_cell,
-        cell.ref = cell.ref, list_near_cell = list_near_cell, mtx.combat = mtx.combat,
-        LocalRef.sum = LocalRef.sum, percent.high.exp = percent.high.exp,
-        select.exp = select.exp, vec.tag1 = vec.tag1,
-        list.localNeg = list.localNeg, mtx.combat.use = mtx.combat.use, topN = topN
-    )
-    stopCluster(cl)
+    if (method_findmarker == 'COSG') {
+        RUN <- mclapply(
+            X = 1:length(cell.ref),
+            FUN = .find_markers_sc_cell_cosg,
+            cell.ref = cell.ref, list_near_cell = list_near_cell, mtx.combat = mtx.combat,
+            LocalRef.sum = LocalRef.sum, percent.high.exp = percent.high.exp,
+            select.exp = select.exp, vec.tag1 = vec.tag1,
+            list.localNeg = list.localNeg, mtx.combat.use = mtx.combat.use, topN = topN,
+            mc.cores = num_threads
+        )
+    }
+
+    if (method_findmarker == 'Seurat') {
+        cl = makeCluster(num_threads, outfile = '')
+        clusterExport(cl, 'getDEgeneF')
+        RUN <- parLapply(
+            cl = cl,
+            1:length(cell.ref),
+            .find_markers_sc_cell,
+            cell.ref = cell.ref, list_near_cell = list_near_cell, mtx.combat = mtx.combat,
+            LocalRef.sum = LocalRef.sum, topN = 50, percent.high.exp = percent.high.exp,
+            select.exp = select.exp, vec.tag1 = vec.tag1,
+            list.localNeg = list.localNeg, mtx.combat.use = mtx.combat.use
+        )
+        stopCluster(cl)
+    }
     names(RUN) <- cell.ref
 
     out <- list()
@@ -1063,13 +1223,13 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         # df.tags1_cd8$auc <- unlist(cells_AUC@assays@data@listData)
         # View(df.tags1_cd8)
         # background
-        geneSets.back <- list(geneSet1=genes.back)
-        cells_AUC.back <- AUCell_calcAUC(geneSets.back, cells_rankings,
-                                         aucMaxRank = length(genes.back)/2,
-                                         verbose = F)
-        list.auc.back[[cell]] <- unlist(cells_AUC.back@assays@data@listData)
+        # geneSets.back <- list(geneSet1=genes.back)
+        # cells_AUC.back <- AUCell_calcAUC(geneSets.back, cells_rankings,
+        #                                  aucMaxRank = length(genes.back)/2,
+        #                                  verbose = F)
+        # list.auc.back[[cell]] <- unlist(cells_AUC.back@assays@data@listData)
         df.auc <- rbind(df.auc, data.frame(AUC = unlist(cells_AUC@assays@data@listData),
-                                           AUC_back = unlist(cells_AUC.back@assays@data@listData),
+                                           # AUC_back = unlist(cells_AUC.back@assays@data@listData),
                                            row.names = colnames(total_mtx)))
 
     }
@@ -1092,18 +1252,20 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
     library(mclust, verbose = F)
     cell <- cells[i]
     df.sub <- df.tags1[df.tags1$scRef.tag == cell, ]
-    sub_AUC <- df.sub[, c('AUC', 'diff')]
-    cell_back <- list_tags1_back[[cell]]
-    back_value <- min(quantile(cell_back,0.9), 0.05)
+    sub_AUC <- df.sub[, c('AUC', 'cluster.id')]
+    # cell_back <- list_tags1_back[[cell]]
+    # back_value <- min(quantile(cell_back,0.9), 0.05)
+    df_cluster_median = aggregate(sub_AUC$AUC, by = list(sub_AUC$cluster.id), median)
+    colnames(df_cluster_median) <- c('cluster.id', 'median')
     prop_0 <- sum(df.sub$AUC == 0) / dim(df.sub)[1]
-    if (sum(df.tags1$scRef.tag == cell) < 5 | prop_0 > 0.95) {
+    if (sum(df.tags1$scRef.tag == cell) < 6 | prop_0 > 0.95) {
         one_out <- list()
         one_out[[1]] <- cell
-        one_out[[2]] <- c(max(max(sub_AUC$AUC), back_value + 0.2),
-                          max(max(sub_AUC$diff), 0.05))
-        one_out[[3]] <- median(cell_back)
+        one_out[[2]] <- 0.3 + auc_gap
+        one_out[[3]] <- 0.3 + auc_gap
     } else {
-        if (max(sub_AUC[,1]) - min(sub_AUC[,1]) > 0.57) {
+        diff_cluster <- max(df_cluster_median$median) - min(df_cluster_median$median)
+        if (diff_cluster > 0.2) {
             min_G <- 4
             max_G <- 6
         } else {
@@ -1119,11 +1281,25 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
         for (i in 1:(length(mean_AUC)-1)) {
             diff_AUC <- c(diff_AUC, mean_AUC[i+1] - mean_AUC[i])
         }
-        if (nrow(df.sub) < 200) {
-            auc_gap <- max(auc_gap, 0.2)
+        # if (nrow(df.sub) < 200) {
+        #     auc_gap <- max(auc_gap, 0.2)
+        # }
+        auc_gap_tight <- 0.01
+        if (sum(diff_AUC > auc_gap_tight, na.rm = T) > 0) {
+            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap_tight])
+            if (!(as.character(cut_class+1) %in% names(mean_AUC))) {cut_class = cut_class+1}
+            # cut_AUC <- mean_AUC[cut_class]
+            df.sub$class_AUC <- model_AUC$classification
+            # cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
+            # cut_AUC <- quantile(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)], 0.99)
+            cutoff_auc <- median(df.sub$AUC[df.sub$class_AUC == as.character(cut_class+1)])
+        } else {
+            cutoff_auc <- 0
         }
-        if (sum(diff_AUC > auc_gap) > 0) {
-            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap])
+
+        auc_gap_loose <- auc_gap
+        if (sum(diff_AUC > auc_gap_loose, na.rm = T) > 0) {
+            cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap_loose])
             # cut_AUC <- mean_AUC[cut_class]
             df.sub$class_AUC <- model_AUC$classification
             # cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
@@ -1132,27 +1308,28 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
             cut_AUC <- 0
         }
 
-        sub_AUC_scale <- scale(sub_AUC)
-        model <- densityMclust(sub_AUC_scale, verbose = F, G = min_G:max_G)
-        # cutoff_pos <- max(summary(sub_AUC)[5], max(cell_back))
-        # cutoff_pos <- max(quantile(sub_AUC, 0.85), quantile(cell_back,0.95))
-        # cutoff_pos <- max(0.85*(max(sub_AUC)-min(sub_AUC))+min(sub_AUC), quantile(cell_back,0.95))
-        df.sub$classification <- model$classification
-        cluster.mean <- as.data.frame(model$parameters$mean)[, as.numeric(names(table(model$classification)))]
-        sel_class <- names(table(model$classification))[order(colSums(cluster.mean), decreasing = T)[1]]
-        if (sum(df.sub$classification == sel_class) <= 6) {
-            first_two <- order(colSums(cluster.mean), decreasing = T)[1:2]
-            first_two_diff <- mean(df.sub[df.sub$classification == first_two[1], 'AUC']) -
-                mean(df.sub[df.sub$classification == first_two[2], 'AUC'])
-            if (first_two_diff < 0.2) {
-                sel_class <- names(table(model$classification))[order(colSums(cluster.mean), decreasing = T)[1:2]]
-            }
+        df_cluster_median <- df_cluster_median[order(df_cluster_median$median, decreasing = F),]
+        rownames(df_cluster_median) <- 1:nrow(df_cluster_median)
+        df_cluster_median$diff <- rep(0, nrow(df_cluster_median))
+        for (i in 1:(nrow(df_cluster_median)-1)) {
+            df_cluster_median[i, 'diff'] <-
+                df_cluster_median[i+1, 'median'] - df_cluster_median[i, 'median']
         }
-        df.sub_sel <- df.sub[df.sub$classification %in% sel_class,]
+        auc_gap_cluster <- max(auc_gap-0.03-nrow(df_cluster_median)/1500, 0.05)
+        if (sum(df_cluster_median$diff > auc_gap_cluster, na.rm = T) > 0) {
+            cut_class <- max(as.numeric(rownames(df_cluster_median))[df_cluster_median$diff > auc_gap_cluster])
+            drop_cluster <- df_cluster_median$cluster.id[1:cut_class]
+            cut_cluster_AUC <- quantile(df.sub$AUC[df.sub$cluster.id %in% drop_cluster], 0.9)
+        } else {
+            cut_cluster_AUC <- 0
+        }
+        cut_AUC <- max(cut_AUC, cut_cluster_AUC)
+
         one_out <- list()
         one_out[[1]] <- cell
-        one_out[[2]] <- c(max(quantile(df.sub_sel$AUC, 0.25), back_value),
-                          max(quantile(df.sub_sel$diff, 0.25), 0.05))
+        one_out[[2]] <- cutoff_auc
+        # one_out[[2]] <- c(max(quantile(df.sub_sel$AUC, 0.25), back_value),
+        #                   max(quantile(df.sub_sel$diff, 0.25), 0.05))
         one_out[[3]] <- cut_AUC
         # one_out[[3]] <- median(cell_back)
     }
@@ -1164,44 +1341,39 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 .cutoff_AUC <- function(df.tags1, list_tags1_back, exp_sc_mat, threshold, num_threads = num_threads) {
     library(parallel, verbose = F)
     cells <- as.character(unique(df.tags1$scRef.tag))
-    list.cutoff <- list()
+    vec.cutoff <- c()
     vec.neg.cutoff <- c()
     vec.cut <- c()
-    if (median(colSums(exp_sc_mat != 0)) < 1200) {
-        base_thre <- 0.23
-    } else {
-        base_thre <- 0.18
-    }
+    base_thre <- 0.2
     if (threshold <= 5) {
         auc_gap <- (5-threshold)*2 + base_thre
     } else {
         auc_gap <- (5-threshold) + base_thre
     }
 
-    cl = makeCluster(num_threads, outfile = '')
-    RUN <- parLapply(
-        cl = cl,
-        1:length(cells),
-        .one_cutoff_AUC,
+    RUN <- mclapply(
+        X = 1:length(cells),
+        FUN = .one_cutoff_AUC,
         cells = cells,
         df.tags1 = df.tags1,
         auc_gap = auc_gap,
-        list_tags1_back = list_tags1_back
+        list_tags1_back = list_tags1_back,
+        mc.cores = num_threads
     )
-    stopCluster(cl)
+
     for (one_out in RUN) {
         cell <- one_out[[1]]
-        list.cutoff[[cell]] <- one_out[[2]]
+        vec.cutoff <- c(vec.cutoff, one_out[[2]])
         # list.cutoff <- c(quantile(df.sub_sel$AUC, 0.25), quantile(df.sub_sel$diff, 0.25))
         # vec.neg.cutoff <- c(vec.neg.cutoff, one_out[[3]])
         vec.cut <- c(vec.cut, one_out[[3]])
     }
-    # names(vec.cutoff) <- cells
+    names(vec.cutoff) <- cells
     # names(vec.neg.cutoff) <- cells
     names(vec.cut) <- cells
 
     out.cutoff <- list()
-    out.cutoff$list.cutoff <- list.cutoff
+    out.cutoff$vec.cutoff <- vec.cutoff
     out.cutoff$vec.neg.cutoff <- vec.neg.cutoff
     out.cutoff$vec.cut <- vec.cut
     return(out.cutoff)
@@ -1211,6 +1383,8 @@ generate_ref <- function(exp_sc_mat, TAG, min_cell = 1, M = 'SUM',
 scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     single_round = F, identify_unassigned = T,
                     atlas = NULL, use_RUVseq = T,
+                    method_findmarker = 'COSG',
+                    percent_high_exp = 0.7, num_marker_gene = 100,
                     cluster_num_pc = 50, cluster_resolution = 3,
                     combine_num_cell = NULL, min_cell = 1,
                     method1 = 'kendall', method2 = NULL,
@@ -1237,13 +1411,6 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             combine_num_cell = 5
         } else {
             combine_num_cell = 3
-        }
-    }
-    if (is.null(method2)) {
-        if (num_cell > 5000) {
-            method2 = 'randomforest'
-        } else {
-            method2 = 'multinomial'
         }
     }
 
@@ -1290,10 +1457,10 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     df.cluster <- list_out.cluster$out.cluster
     seurat.query <- list_out.cluster$seurat.query
 
-    out.merge <-
-        .cluster_increase_speed(exp_sc_mat, df.cluster,
-                                combine_num_cell = combine_num_cell, num_threads = num_threads)
-    df.dict <- out.merge$df.dict
+    # out.merge <-
+    #     .cluster_increase_speed(exp_sc_mat, df.cluster,
+    #                             combine_num_cell = combine_num_cell, num_threads = num_threads)
+    # df.dict <- out.merge$df.dict
     print('Clustering completed!')
     # speed calculation
     if (opt_speed) {
@@ -1319,8 +1486,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     exp_ref_mat.cell <- exp_ref_mat.cell[gene_not0, ]
 
     # find markers of cell types in reference
-    topN = 50
-    percent.high.exp = 0.8
+    topN = num_marker_gene
+    percent.high.exp = percent_high_exp
     print('Find marker genes of cell types in reference:')
     suppressMessages(
         out.markers <-
@@ -1329,6 +1496,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                 seurat.out.group,
                 type_ref = 'sum-counts',
                 use_RUVseq = use_RUVseq,
+                base.topN = topN, method_findmarker = method_findmarker,
                 percent.high.exp = percent.high.exp, num_threads = num_threads
             ))
     list.cell.genes <- out.markers[['list.cell.genes']]
@@ -1338,7 +1506,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     # rm(exp_sc_mat)
     gc()
     df.exp.merge <- as.matrix(df.exp.merge)
-    if (method1 == 'multinomial' | method2 == 'multinomial') {
+    if (method1 == 'multinomial') {
         query_set <- as.data.frame(t(as.matrix(df.exp.merge)))/1.0
         query_set$label <- df.cluster$cluster.id
     }
@@ -1380,8 +1548,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             tag1 <- as.matrix(tag1)
         }
     }
-    out1_scale <- scale(out1)
-    out1_diff <- apply(out1_scale, 2, function(input) {sort(input, decreasing = T)[1] - sort(input, decreasing = T)[2]})
+    # out1_scale <- scale(out1)
+    # out1_diff <- apply(out1_scale, 2, function(input) {sort(input, decreasing = T)[1] - sort(input, decreasing = T)[2]})
 
     gc()
 
@@ -1389,16 +1557,16 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     list_out_1 <- .confirm_label_auc(df.exp.merge, list.cell.genes, list_near_cell,
                                      tag1, num_threads = num_threads)
     df.tags1 <- list_out_1$meta.tag
-    list_tags1_back <- list_out_1$list.auc.back
+    # list_tags1_back <- list_out_1$list.auc.back
     cell_ids <- colnames(df.exp.merge)
     df.tags1 <- df.tags1[cell_ids, ]
-
-    df.tags1$diff <- out1_diff
-    df.tags1 <- merge(df.tags1, df.dict, by = 'row.names')
+    # df.tags1$celltypr = label_sc
+    # df.tags1$diff <- out1_diff
+    df.tags1 <- merge(df.tags1, df.cluster, by = 'row.names')
     rownames(df.tags1) <- df.tags1$Row.names
     df.tags1$Row.names <- NULL
     out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, exp_sc_mat, threshold, num_threads = num_threads)
-    df.cutoff.1 <- out.cutoff$list.cutoff
+    df.cutoff.1 <- out.cutoff$vec.cutoff
     neg.cutoff.1 <- out.cutoff$vec.neg.cutoff
     vec.cut_1 <- out.cutoff$vec.cut
 
@@ -1415,20 +1583,20 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df_unassigned$tag.final <- pvalue1$scRef.tag.1
         df_unassigned$tag.final[df_unassigned$tag_unassaigned.1 == 'Unassigned'] <- 'Unassigned'
 
-        df.tags <- merge(df_unassigned, df.dict, by = 'row.names')
+        df.tags <- merge(df_unassigned, df.cluster, by = 'row.names')
         row.names(df.tags) <- df.tags$Row.names
         df.tags$Row.names <- NULL
-        df.tags <- df.tags[, c("tag.final", "cluster.merge.id", "cluster.level1")]
+        df.tags <- df.tags[, c("tag.final", "cluster.id", "cluster.level1")]
         df.tags$scRef.tag <- df.tags$tag.final
-        all_sub_clusters <- unique(df.tags$cluster.merge.id)
+        all_sub_clusters <- unique(df.tags$cluster.id)
         for (sub_cluster in all_sub_clusters) {
-            df_sub <- df.tags[df.tags$cluster.merge.id == sub_cluster,]
+            df_sub <- df.tags[df.tags$cluster.id == sub_cluster,]
             sub_table <- sort(table(df_sub$tag.final), decreasing = T)
             if (length(sub_table) == 1) {
                 next
             } else {
                 if (sub_table[1]/nrow(df_sub) >= 0.6) {
-                    df.tags$scRef.tag[df.tags$cluster.merge.id == sub_cluster] <- names(sub_table)[1]
+                    df.tags$scRef.tag[df.tags$cluster.id == sub_cluster] <- names(sub_table)[1]
                 }
             }
         }
@@ -1457,7 +1625,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         output$tag1 <- tag1
         output$out1 <- out1
         output$combine.out <- df.tags
-        output$dict.cluster <- df.dict
+        output$dict.cluster <- df.cluster
         output$ref.markers <- list.cell.genes
         output$final.out <- df.combine
         output$run.time <- time.scRef
@@ -1470,29 +1638,34 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 
     select.barcode <- c()
     for (cell in names(df.cutoff.1)) {
-        sub.cutoff <- df.cutoff.1[[cell]]
+        sub.cutoff <- df.cutoff.1[cell]
         sub.select <- df.tags1[df.tags1$scRef.tag == cell, ]
-        sub.select <- sub.select[sub.select$AUC >= sub.cutoff[1] & sub.select$diff >= sub.cutoff[2], ]
+        sub.select <- sub.select[sub.select$AUC >= sub.cutoff[1], ]
         select.barcode <- c(select.barcode, row.names(sub.select))
     }
     list.localNeg <- list()
 
+    df.tags1 <- df.tags1[cell_ids, ]
     df.tags1$conf <- rep(0, nrow(df.tags1))
-    df.tags1$conf[df.tags1$cell.id %in% select.barcode] <- 1
+    df.tags1$conf[rownames(df.tags1) %in% select.barcode] <- 1
     df.tags1$expand_conf <- rep(0, nrow(df.tags1))
-    table_prop <- table(df.tags1$scRef.tag[df.tags1$conf == 1])/length(select.barcode)
-    not_extend <- names(table_prop)[table_prop > 0.2]
-    for (sub_cluster in unique(df.tags1$cluster.merge.id)) {
-        df_sub <- df.tags1[df.tags1$cluster.merge.id == sub_cluster,]
-        kind_num <- length(table(df_sub$scRef.tag))
-        sub_tag <- names(sort(table(df_sub$scRef.tag), decreasing = T))[1]
-        if (kind_num == 1 & sum(df_sub$conf) > 0 & !(sub_tag %in% not_extend)) {
-            df.tags1[df.tags1$cluster.merge.id == sub_cluster, 'expand_conf'] <- 1
-        } else {
-            df.tags1[df.tags1$cluster.merge.id == sub_cluster, 'expand_conf'] <- df_sub$conf
+    table_num <- table(df.tags1$scRef.tag[df.tags1$conf == 1])
+    table_prop <- table_num/length(select.barcode)
+    not_expend_1 <- names(table_num)[table_num > 300]
+    not_expend_2 <- names(table_prop)[table_prop > 0.2]
+    not_expend <- union(not_expend_1, not_expend_2)
+    for (cell_name in names(table_prop)) {
+        if (cell_name %in% not_expend) {
+            df.tags1[df.tags1$conf == 1, 'expand_conf'] <- 1
         }
+        df_sub <- df.tags1[df.tags1$scRef.tag == cell_name & df.tags1$conf == 1,]
+        sub_table <- table(df_sub$cluster.id) / nrow(df_sub)
+        expand_clust <- names(sub_table[sub_table > 0.3])
+        df.tags1[df.tags1$cluster.id %in% expand_clust & df.tags1$scRef.tag == cell_name, 'expand_conf'] <- 1
+        df.tags1[df.tags1$AUC <= vec.cut_1[cell_name] & df.tags1$scRef.tag == cell_name, 'expand_conf'] <- 0
     }
-    select.barcode <- df.tags1$cell.id[df.tags1$expand_conf == 1]
+    select.barcode <- rownames(df.tags1)[df.tags1$expand_conf == 1]
+    # df_conf=df.tags1[df.tags1$expand_conf==1,]
     select.exp <- df.exp.merge[, cell_ids %in% select.barcode]
     select.tag1 <- tag1[tag1[, 'cell_id'] %in% select.barcode, ]
     LocalRef <- generate_ref(select.exp, select.tag1,  min_cell = min_cell)
@@ -1511,18 +1684,32 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                 select.exp, vec.tag1, LocalRef,
                 seurat.out.group, list.localNeg,
                 use_RUVseq = use_RUVseq,
+                base.topN = topN, method_findmarker = method_findmarker,
                 percent.high.exp = percent.high.exp,
                 num_threads = num_threads
             )
     )
     local.cell.genes <- out.markers[['list.cell.genes']]
     list_near_cell <- out.markers[['list_near_cell']]
-    local.cell.genes_merge <- list()
-    for (one_cell in names(local.cell.genes)) {
-        local.cell.genes_merge[[one_cell]] <-
-            setdiff(union(list.cell.genes[[one_cell]], local.cell.genes[[one_cell]]), NA)
-    }
+    local.cell.genes_merge <- local.cell.genes
+    # local.cell.genes_merge <- list()
+    # for (one_cell in names(local.cell.genes)) {
+    #     local.cell.genes_merge[[one_cell]] <-
+    #         setdiff(union(list.cell.genes[[one_cell]], local.cell.genes[[one_cell]]), NA)
+    # }
 
+    num_local_cell <- length(vec.tag1)
+    if (is.null(method2)) {
+        if (num_local_cell > 5000) {
+            method2 = 'randomforest'
+        } else {
+            method2 = 'multinomial'
+        }
+    }
+    if (method2 == 'multinomial') {
+        query_set <- as.data.frame(t(as.matrix(df.exp.merge)))/1.0
+        query_set$label <- df.cluster$cluster.id
+    }
     print('Second-round annotation:')
     if (method2 == 'randomforest') {
         pca_query <- as.data.frame(seurat.query@reductions$pca@cell.embeddings)
@@ -1581,15 +1768,15 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     pvalue1 <- data.frame(stringsAsFactors = F)
     for (cell_label in unique(df.tags1$scRef.tag)) {
         df_sub <- df.tags1[df.tags1$scRef.tag == cell_label,]
-        df_sub$AUC_scale <- scale(df_sub$AUC)
-        pvalue1 <- rbind(pvalue1, df_sub[, c('scRef.tag', 'AUC_scale')])
+        # df_sub$AUC_scale <- scale(df_sub$AUC)
+        pvalue1 <- rbind(pvalue1, df_sub[, c('scRef.tag', 'AUC')])
     }
     names(pvalue1) <- c('scRef.tag.1', 'AUC.1')
     pvalue2 <- data.frame(stringsAsFactors = F)
     for (cell_label in unique(df.tags2$scRef.tag)) {
         df_sub <- df.tags2[df.tags2$scRef.tag == cell_label,]
-        df_sub$AUC_scale <- scale(df_sub$AUC)
-        pvalue2 <- rbind(pvalue2, df_sub[, c('scRef.tag', 'AUC_scale')])
+        # df_sub$AUC_scale <- scale(df_sub$AUC)
+        pvalue2 <- rbind(pvalue2, df_sub[, c('scRef.tag', 'AUC')])
     }
     names(pvalue2) <- c('scRef.tag.2', 'AUC.2')
     pvalue <- merge(pvalue1, pvalue2, by = 'row.names')
@@ -1621,20 +1808,20 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                                  stringsAsFactors = F)
     }
 
-    df.tags <- merge(df_auc_unassigned, df.dict, by = 'row.names')
+    df.tags <- merge(df_auc_unassigned, df.cluster, by = 'row.names')
     row.names(df.tags) <- df.tags$Row.names
     df.tags$Row.names <- NULL
-    df.tags <- df.tags[, c("tag.merge", "tag.final", "cluster.merge.id", "cluster.level1")]
+    df.tags <- df.tags[, c("tag.merge", "tag.final", "cluster.id")]
     df.tags$scRef.tag <- df.tags$tag.final
-    all_sub_clusters <- unique(df.tags$cluster.merge.id)
+    all_sub_clusters <- unique(df.tags$cluster.id)
     for (sub_cluster in all_sub_clusters) {
-        df_sub <- df.tags[df.tags$cluster.merge.id == sub_cluster,]
+        df_sub <- df.tags[df.tags$cluster.id == sub_cluster,]
         sub_table <- sort(table(df_sub$tag.final), decreasing = T)
         if (length(sub_table) == 1) {
             next
         } else {
-            if (sub_table[1]/nrow(df_sub) >= 0.6) {
-                df.tags$scRef.tag[df.tags$cluster.merge.id == sub_cluster] <- names(sub_table)[1]
+            if (sub_table[1]/nrow(df_sub) >= 0.8) {
+                df.tags$scRef.tag[df.tags$cluster.id == sub_cluster&df.tags$scRef.tag == 'Unassigned'] <- names(sub_table)[1]
             }
         }
     }
@@ -1649,7 +1836,6 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     #     df.tags <- df.tags.merge
     # }
     cell_ids <- colnames(exp_sc_mat)
-    # df.combine <- df.combine[cell_ids, ]
     df.tags <- df.tags[cell_ids, ]
 
     if (cluster_assign) {
@@ -1664,7 +1850,6 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     } else {
         df.combine <- data.frame(scMAGIC.tag = df.tags$scRef.tag, row.names = rownames(df.tags))
     }
-
 
     #####
     gc()
