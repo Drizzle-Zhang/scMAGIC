@@ -1394,6 +1394,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 
     library(parallel, verbose = F)
     library(scibet)
+    library(Matrix)
     # check parameters
     # if (!type_ref %in% c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm')) {
     #     stop('Error: inexistent input of reference data format')
@@ -1480,7 +1481,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.exp.merge <- exp_sc_mat
     }
 
-    gene_not0 <- rownames(df.exp.merge)[rowSums(df.exp.merge)!=0]
+    gene_not0 <- rownames(df.exp.merge)[Matrix::rowSums(df.exp.merge)!=0]
     df.exp.merge <- df.exp.merge[gene_not0, ]
     exp_ref_mat <- exp_ref_mat[gene_not0, ]
     exp_ref_mat.cell <- exp_ref_mat.cell[gene_not0, ]
@@ -1905,16 +1906,29 @@ transformHomoloGene <- function(exp_sc_mat, inTaxID = 9606, outTaxID = 10090) {
 }
 
 
-scMAGIC_Seurat <- function(seurat.query, seurat.ref, atlas = 'MCA', corr_use_HVGene = 2000,
-                           threshold = 5, cluster_resolution = 3, num_threads = 4) {
+scMAGIC_Seurat <- function(seurat.query, seurat.ref, atlas = 'MCA',
+                           method_findmarker = 'COSG',
+                           percent_high_exp = 0.7, num_marker_gene = 100,
+                           cluster_num_pc = 50, cluster_resolution = 3,
+                           corr_use_HVGene = 2000, min_cell = 1,
+                           method1 = 'kendall', method2 = NULL,
+                           threshold = 5, num_threads = 4, cluster_assign = F) {
     exp_sc_mat <- seurat.query@assays$RNA@counts
     exp_ref_mat <- seurat.ref@assays$RNA@counts
     exp_ref_label <- seurat.ref@meta.data$celltype
     output.scMAGIC <- scMAGIC(exp_sc_mat, exp_ref_mat, exp_ref_label,
-                              atlas = atlas, corr_use_HVGene1 = corr_use_HVGene,
+                              atlas = atlas,
+                              corr_use_HVGene1 = corr_use_HVGene,
                               corr_use_HVGene2 = corr_use_HVGene,
-                              threshold = threshold,
+                              method_findmarker = method_findmarker,
+                              percent_high_exp = percent_high_exp,
+                              num_marker_gene = num_marker_gene,
+                              cluster_num_pc = cluster_num_pc,
                               cluster_resolution = cluster_resolution,
+                              min_cell = min_cell,
+                              method1 = method1, method2 = method2,
+                              cluster_assign = cluster_assign,
+                              threshold = threshold,
                               num_threads = num_threads)
     pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
     seurat.query$prediction_celltype <- pred.scMAGIC
