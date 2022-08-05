@@ -1190,7 +1190,8 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         } else {
             total_mtx <- as.matrix(total_mtx)
         }
-        cells_rankings <- AUCell_buildRankings(total_mtx, verbose = F, plotStats = F)
+        cells_rankings <- AUCell::AUCell_buildRankings(
+            total_mtx, verbose = F, plotStats = F)
 
         cell_markers <- list.cell.genes[[cell]]
         cells_near <- list_near_cell[[cell]]
@@ -1215,8 +1216,8 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         # genes.back <- genes_near
 
         geneSets <- list(geneSet1=genes.marker)
-        cells_AUC <- AUCell_calcAUC(geneSets, cells_rankings, aucMaxRank = length(genes.marker)/2,
-                                    verbose = F)
+        cells_AUC <- AUCell::AUCell_calcAUC(
+            geneSets, cells_rankings, aucMaxRank = length(genes.marker)/2, verbose = F)
 
         # df.tags1_cd8 <- df.tags1[colnames(exp_sc_mat)%in%
         #                              (colnames(exp_sc_mat)[tag1[,2]==cell]),]
@@ -1587,7 +1588,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.tags <- merge(df_unassigned, df.cluster, by = 'row.names')
         row.names(df.tags) <- df.tags$Row.names
         df.tags$Row.names <- NULL
-        df.tags <- df.tags[, c("tag.final", "cluster.id", "cluster.level1")]
+        df.tags <- df.tags[, c("tag.final", "cluster.id")]
         df.tags$scRef.tag <- df.tags$tag.final
         all_sub_clusters <- unique(df.tags$cluster.id)
         for (sub_cluster in all_sub_clusters) {
@@ -1596,7 +1597,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             if (length(sub_table) == 1) {
                 next
             } else {
-                if (sub_table[1]/nrow(df_sub) >= 0.6) {
+                if (sub_table[1]/nrow(df_sub) >= 0.8) {
                     df.tags$scRef.tag[df.tags$cluster.id == sub_cluster] <- names(sub_table)[1]
                 }
             }
@@ -1606,12 +1607,12 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         df.tags <- df.tags[cell_ids, ]
 
         if (cluster_assign) {
-            all_clusters <- unique(df.tags$cluster.level1)
+            all_clusters <- unique(df.tags$cluster.id)
             df.tags$cluster.tags <- df.tags$scRef.tag
             for (cluster in all_clusters) {
-                df_sub <- df.tags[df.tags$cluster.level1 == cluster,]
+                df_sub <- df.tags[df.tags$cluster.id == cluster,]
                 sub_table <- sort(table(df_sub$tag.final), decreasing = T)
-                df.tags$cluster.tags[df.tags$cluster.level1 == cluster] <- names(sub_table)[1]
+                df.tags$cluster.tags[df.tags$cluster.id == cluster] <- names(sub_table)[1]
             }
             df.combine <- data.frame(scMAGIC.tag = df.tags$cluster.tags, row.names = rownames(df.tags))
         } else {
@@ -1840,12 +1841,12 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     df.tags <- df.tags[cell_ids, ]
 
     if (cluster_assign) {
-        all_clusters <- unique(df.tags$cluster.level1)
+        all_clusters <- unique(df.tags$cluster.id)
         df.tags$cluster.tags <- df.tags$scRef.tag
         for (cluster in all_clusters) {
-            df_sub <- df.tags[df.tags$cluster.level1 == cluster,]
+            df_sub <- df.tags[df.tags$cluster.id == cluster,]
             sub_table <- sort(table(df_sub$tag.final), decreasing = T)
-            df.tags$cluster.tags[df.tags$cluster.level1 == cluster] <- names(sub_table)[1]
+            df.tags$cluster.tags[df.tags$cluster.id == cluster] <- names(sub_table)[1]
         }
         df.combine <- data.frame(scMAGIC.tag = df.tags$cluster.tags, row.names = rownames(df.tags))
     } else {
@@ -1869,7 +1870,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             output$pvalue2 <- df.tags
             # output$info.cluster <- info.cluster
             if (opt_speed) {
-                output$dict.cluster <- df.dict
+                output$dict.cluster <- df.cluster
             }
             # output$cutoff.1 <- df.cutoff.1
             # output$cutoff.neg.1 <- neg.cutoff.1
