@@ -1320,10 +1320,20 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         if (sum(df_cluster_median$diff > auc_gap_cluster, na.rm = T) > 0) {
             cut_class <- max(as.numeric(rownames(df_cluster_median))[df_cluster_median$diff > auc_gap_cluster])
             drop_cluster <- df_cluster_median$cluster.id[1:cut_class]
-            cut_cluster_AUC <- quantile(df.sub$AUC[df.sub$cluster.id %in% drop_cluster], 0.9)
+            cut_cluster_AUC <- quantile(df.sub$AUC[df.sub$cluster.id == drop_cluster[cut_class]], 0.9)
         } else {
             cut_cluster_AUC <- 0
         }
+        if (nrow(df_cluster_median) >= 20) {
+            cut_class <- max(as.numeric(rownames(df_cluster_median))[df_cluster_median$diff > 0.06])
+            drop_cluster <- df_cluster_median$cluster.id[1:cut_class]
+            cut_class <- min(cut_class, round(nrow(df_cluster_median)/2))
+            cut_diff <- df_cluster_median$diff[cut_class]
+            if (cut_diff > 2*max(df_cluster_median$diff[(cut_class+1):nrow(df_cluster_median)])) {
+                cut_cluster_AUC <- max(quantile(df.sub$AUC[df.sub$cluster.id == drop_cluster[cut_class]], 0.9), cut_cluster_AUC)
+            }
+        }
+
         cut_AUC <- max(cut_AUC, cut_cluster_AUC)
 
         one_out <- list()
@@ -1561,7 +1571,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     # list_tags1_back <- list_out_1$list.auc.back
     cell_ids <- colnames(df.exp.merge)
     df.tags1 <- df.tags1[cell_ids, ]
-    # df.tags1$celltypr = label_sc
+    # df.tags1$celltype = label_sc
     # df.tags1$diff <- out1_diff
     df.tags1 <- merge(df.tags1, df.cluster, by = 'row.names')
     rownames(df.tags1) <- df.tags1$Row.names
@@ -1865,10 +1875,9 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         if (identify_unassigned) {
             output$pvalue1 <- df.tags1
             output$pvalue2 <- df.tags
-            # output$info.cluster <- info.cluster
-            if (opt_speed) {
-                output$dict.cluster <- df.cluster
-            }
+            output$localref.cell <- select.exp
+            output$localref.tag <- vec.tag1
+            output$dict.cluster <- df.cluster
             # output$cutoff.1 <- df.cutoff.1
             # output$cutoff.neg.1 <- neg.cutoff.1
             # output$cutoff.2 <- df.cutoff.2
