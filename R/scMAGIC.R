@@ -583,9 +583,9 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
 
 }
 
-.find_markers <- function(exp_ref_mat, exp_ref_mat.cell, exp_ref_label, seurat.out.group,
-                          type_ref = 'sum-counts', use_RUVseq = T, method_findmarker = 'COSG',
-                          base.topN = 50, percent.high.exp = 0.8, num_threads = 6) {
+.find_markers_first <- function(exp_ref_mat, exp_ref_mat.cell, exp_ref_label, seurat.out.group,
+                                type_ref = 'sum-counts', use_RUVseq = T, method_findmarker = 'COSG',
+                                base.topN = 50, percent.high.exp = 0.8, num_threads = 6) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
@@ -854,10 +854,10 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
 }
 
 
-.find_markers_sc <- function(select.exp, vec.tag1, LocalRef,
-                             seurat.out.group, list.localNeg, method_findmarker = 'COSG',
-                             use_RUVseq = T, num_threads = 6,
-                             base.topN = 50, percent.high.exp = 0.80) {
+.find_markers_second <- function(select.exp, vec.tag1, LocalRef,
+                                 seurat.out.group, list.localNeg, method_findmarker = 'COSG',
+                                 use_RUVseq = T, num_threads = 6,
+                                 base.topN = 50, percent.high.exp = 0.80) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
@@ -1491,16 +1491,15 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     topN = num_marker_gene
     percent.high.exp = percent_high_exp
     print('Find marker genes of cell types in reference:')
-    suppressMessages(
-        out.markers <-
-            .find_markers(
-                exp_ref_mat, exp_ref_mat.cell, exp_ref_label,
-                seurat.out.group,
-                type_ref = 'sum-counts',
-                use_RUVseq = use_RUVseq,
-                base.topN = topN, method_findmarker = method_findmarker,
-                percent.high.exp = percent.high.exp, num_threads = num_threads
-            ))
+    out.markers <-
+        .find_markers(
+            exp_ref_mat, exp_ref_mat.cell, exp_ref_label,
+            seurat.out.group,
+            type_ref = 'sum-counts',
+            use_RUVseq = use_RUVseq,
+            method_findmarker = method_findmarker, base.topN = topN,
+            percent.high.exp = percent.high.exp, num_threads = num_threads
+        )
     list.cell.genes <- out.markers[['list.cell.genes']]
     list_near_cell <- out.markers[['list_near_cell']]
     df.exp.merge <- exp_sc_mat
