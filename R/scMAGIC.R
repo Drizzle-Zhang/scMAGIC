@@ -1492,7 +1492,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     percent.high.exp = percent_high_exp
     print('Find marker genes of cell types in reference:')
     out.markers <-
-        .find_markers(
+        .find_markers_first(
             exp_ref_mat, exp_ref_mat.cell, exp_ref_label,
             seurat.out.group,
             type_ref = 'sum-counts',
@@ -1679,17 +1679,15 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     #####
     # find local marker genes
     print('find local marker genes')
-    suppressMessages(
-        out.markers <-
-            .find_markers_sc(
-                select.exp, vec.tag1, LocalRef,
-                seurat.out.group, list.localNeg,
-                use_RUVseq = use_RUVseq,
-                base.topN = topN, method_findmarker = method_findmarker,
-                percent.high.exp = percent.high.exp,
-                num_threads = num_threads
-            )
-    )
+    out.markers <-
+        .find_markers_second(
+            select.exp, vec.tag1, LocalRef,
+            seurat.out.group, list.localNeg,
+            use_RUVseq = use_RUVseq,
+            base.topN = topN, method_findmarker = method_findmarker,
+            percent.high.exp = percent.high.exp,
+            num_threads = num_threads
+        )
     local.cell.genes <- out.markers[['list.cell.genes']]
     list_near_cell <- out.markers[['list_near_cell']]
     local.cell.genes_merge <- local.cell.genes
