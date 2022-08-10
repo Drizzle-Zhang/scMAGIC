@@ -37,6 +37,17 @@ remotes::install_github(repo = 'genecell/COSGR')
 BiocManager::install("AUCell")		# 1.10.0
 install.packages("randomForest")    # 4.6-14
 devtools::install_github("Drizzle-Zhang/scMAGIC")
+
+# If you are Windows users, please install
+devtools::install_github("zwj-tina/scibetR")
+# Before running scMAGIC, please firstly run the following codes 
+library(reticulate)
+py_config()  # your python environment
+print(py_module_available('numpy')) # whether the "numpy" has been installed
+np <- import("numpy")
+np.exp2 <- np$exp2
+np.max <- np$max
+np.sum <- np$sum
 ```
 
 ## Tutorial
@@ -76,6 +87,9 @@ label_sc <-list.demo$label
 ```R
 output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, atlas = 'MCA', num_threads = 4)
 pred.scMAGIC <- output.scMAGIC$scMAGIC.tag
+
+# For Windows users, please set "method_HVGene = 'SciBet_R'"
+output.scMAGIC <- scMAGIC(exp_sc_mat, ref.mtx, ref.labels, atlas = 'MCA', method_HVGene = 'SciBet_R', num_threads = 4)
 ```
 
 #### Visualization
