@@ -496,7 +496,8 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
 }
 
 
-.find_markers_cell <- function(cell.ref, list_near_cell, exp_ref_mat.cell, exp_ref_label,
+.find_markers_cell <- function(cell.ref, list_near_cell, exp_ref_mat = exp_ref_mat,
+                               exp_ref_mat.cell, exp_ref_label,
                                mtx.combat, percent.high.exp,
                                mtx.combat.use, topN, i) {
     library(Seurat, verbose = F)
@@ -504,12 +505,12 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
     # print(cell)
     vec.cell <- mtx.combat[, paste0('Ref.', cell)]
     # vec.cell.high <- vec.cell[vec.cell > quantile(vec.cell, percent.high.exp)]
-    # vec.ref <- exp_ref_mat[, cell]
-    # vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
+    vec.ref <- exp_ref_mat[, cell]
+    vec.ref.high <- vec.ref[vec.ref > quantile(vec.ref, percent.high.exp)]
     # high expression genes
     # genes.high <- intersect(names(vec.cell.high), names(vec.ref.high))
-    # genes.high <- names(vec.ref.high)
-    genes.high <- rownames(exp_ref_mat.cell)
+    genes.high <- names(vec.ref.high)
+    # genes.high <- rownames(exp_ref_mat.cell)
 
     # diff in local reference and negative reference
     seurat.Ref.cell <- CreateSeuratObject(counts = exp_ref_mat.cell, project = "Ref")
@@ -542,15 +543,15 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
             }
             i <- i + 1
         }
-        if (length(genes.ref) > (2*topN)) {
+        if (length(genes.ref) > (topN)) {
             sub_markers <- sub_markers[order(sub_markers$p_val),]
-            genes.ref <- row.names(sub_markers)[1:(2*topN)]
+            genes.ref <- row.names(sub_markers)[1:(topN)]
         }
         use.genes <- genes.ref
     } else {
-        if (length(genes.ref) > (2*topN)) {
+        if (length(genes.ref) > (topN)) {
             sub_markers <- markers[order(markers$p_val),]
-            genes.ref <- row.names(sub_markers)[1:(2*topN)]
+            genes.ref <- row.names(sub_markers)[1:(topN)]
         }
         use.genes <- genes.ref
     }
@@ -585,7 +586,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
 
 .find_markers_first <- function(exp_ref_mat, exp_ref_mat.cell, exp_ref_label, seurat.out.group,
                                 type_ref = 'sum-counts', use_RUVseq = T, method_findmarker = 'COSG',
-                                base.topN = 50, percent.high.exp = 0.8, num_threads = 6) {
+                                base.topN = 100, percent.high.exp = 0.8, num_threads = 6) {
     library(parallel, verbose = F)
     library(Seurat, verbose = F)
     # check parameters
@@ -680,11 +681,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         RUN <- parLapply(
             cl = cl,
             1:length(cell.ref),
-            .find_markers_cell_cosg,
+            .find_markers_cell,
             cell.ref = cell.ref, list_near_cell = list_near_cell,
             exp_ref_mat = exp_ref_mat,
             exp_ref_mat.cell = exp_ref_mat.cell, exp_ref_label = exp_ref_label,
-            mtx.combat = mtx.combat, topN = 50, percent.high.exp = percent.high.exp,
+            mtx.combat = mtx.combat, topN = base.topN, percent.high.exp = percent.high.exp,
             mtx.combat.use = mtx.combat.use
         )
         stopCluster(cl)
@@ -723,7 +724,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
     genes.ref.cell <- row.names(markers[(markers$p_val_adj < 0.05),])
     genes.ref <- genes.ref.cell
 
-    n.neighbor <- min(3, length(cell.ref) - 1)
+    n.neighbor <- min(3, length(list_near_cell[[cell]]))
     i <- 1
     for (cell_near in rev(list_near_cell[[cell]][1:n.neighbor])) {
         sub_seurat <- subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near))
@@ -742,7 +743,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
     }
 
     if (length(genes.ref) > (2*topN)) {
-        sub_markers <- sub_markers[order(sub_markers$p_val),]
+        sub_markers <- markers[order(markers$p_val),]
         genes.ref <- row.names(sub_markers)[1:(2*topN)]
     }
     use.genes <- genes.ref
@@ -1266,7 +1267,8 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         one_out[[3]] <- 0.3 + auc_gap
     } else {
         diff_cluster <- max(df_cluster_median$median) - min(df_cluster_median$median)
-        if (diff_cluster > 0.2) {
+        diff_cell <- max(df.sub$AUC) - min(df.sub$AUC)
+        if (diff_cluster > 0.25 | diff_cell > 0.5) {
             min_G <- 4
             max_G <- 6
         } else {
@@ -1275,6 +1277,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         }
         model_AUC <- densityMclust(sub_AUC[,1], verbose = F, G = min_G:max_G)
         mean_AUC <- model_AUC$parameters$mean
+        len_mean <- length(mean_AUC)
         if (length(table(model_AUC$classification)) != length(mean_AUC)) {
             mean_AUC <- mean_AUC[names(table(model_AUC$classification))]
         }
@@ -1288,7 +1291,9 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         auc_gap_tight <- 0.01
         if (sum(diff_AUC > auc_gap_tight, na.rm = T) > 0) {
             cut_class <- max(as.numeric(names(mean_AUC)[1:length(diff_AUC)])[diff_AUC > auc_gap_tight])
-            if (!(as.character(cut_class+1) %in% names(mean_AUC))) {cut_class = cut_class+1}
+            for (i in cut_class:len_mean) {
+                if (!(as.character(cut_class+1) %in% names(mean_AUC))) {cut_class = cut_class+1}
+            }
             # cut_AUC <- mean_AUC[cut_class]
             df.sub$class_AUC <- model_AUC$classification
             # cut_AUC <- max(df.sub$AUC[df.sub$class_AUC == as.character(cut_class)])
@@ -1355,7 +1360,12 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
     vec.cutoff <- c()
     vec.neg.cutoff <- c()
     vec.cut <- c()
-    base_thre <- 0.2
+    if (method_findmarker == 'Seurat') {
+        base_thre <- 0.18
+    }
+    if (method_findmarker == 'COSG') {
+        base_thre <- 0.2
+    }
     if (threshold <= 5) {
         auc_gap <- (5-threshold)*2 + base_thre
     } else {
@@ -1399,13 +1409,27 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     cluster_num_pc = 50, cluster_resolution = 3,
                     combine_num_cell = NULL, min_cell = 1,
                     method1 = 'kendall', method2 = NULL,
+                    method_HVGene = 'scibet',
                     corr_use_HVGene1 = 2000, corr_use_HVGene2 = 2000,
                     threshold = 5, num_threads = 4, cluster_assign = F,
                     simple_output = T) {
 
     library(parallel, verbose = F)
-    library(scibet)
     library(Matrix)
+    if (method_HVGene == 'scibet') {
+        library(scibet)
+    }
+    if (method_HVGene == 'SciBet_R') {
+        library(scibetR)
+        library(reticulate)
+        np <- import("numpy")
+        np.exp2 <- np$exp2
+        np.max <- np$max
+        np.sum <- np$sum
+    }
+    if (method_HVGene == 'Seurat') {
+        library(Seurat)
+    }
     # check parameters
     # if (!type_ref %in% c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm')) {
     #     stop('Error: inexistent input of reference data format')
@@ -1535,10 +1559,21 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         # table(label_sc, pred_tags)
     } else {
         if (!is.null(corr_use_HVGene1)) {
-            num_feature <- corr_use_HVGene1/2
-            train_set <- as.data.frame(t(as.matrix(exp_ref_mat.cell)))/1.0
-            train_set$label <- exp_ref_label
-            HVG <- SelectGene(train_set, k = num_feature)
+            if (method_HVGene == 'scibet') {
+                num_feature <- corr_use_HVGene1/2
+                train_set <- as.data.frame(t(as.matrix(exp_ref_mat.cell)))/1.0
+                train_set$label <- exp_ref_label
+                HVG <- scibet::SelectGene(train_set, k = num_feature)
+            }
+            if (method_HVGene == 'SciBet_R') {
+                num_feature <- corr_use_HVGene1/2
+                train_set <- as.data.frame(t(as.matrix(exp_ref_mat.cell)))/1.0
+                train_set$label <- exp_ref_label
+                HVG <- scibetR::SelectGene_R(train_set, k = num_feature)
+            }
+            if (method_HVGene == 'Seurat') {
+                HVG <- .get_high_variance_genes(exp_ref_mat, num.genes = corr_use_HVGene1)
+            }
             similarity.in <- df.exp.merge[HVG, ]
             ref.in <- exp_ref_mat[HVG, ]
         } else {
@@ -1550,9 +1585,19 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             out1 <- t(out1)
             tag1 <- .get_tag_max(out1)
         } else {
-            test_set <- query_set[, etest_gene]
-            pred_tags <- SciBet(train_set, test_set, k=num_feature, result = 'list')
-            out1 <- SciBet(train_set, test_set, k=num_feature, result = 'table')
+            if (!(method_HVGene %in% c('scibet', 'SciBet_R'))) {
+                train_set <- as.data.frame(t(as.matrix(exp_ref_mat.cell)))/1.0
+            }
+            train_set <- train_set[, HVG]
+            train_set$label <- exp_ref_label
+            test_set <- query_set[, HVG]
+            if (method_HVGene == 'SciBet_R') {
+                pred_tags <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'list')
+                out1 <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'table')
+            } else {
+                pred_tags <- scibet::SciBet(train_set, test_set, k=num_feature, result = 'list')
+                out1 <- scibet::SciBet(train_set, test_set, k=num_feature, result = 'table')
+            }
             rownames(out1) <- rownames(test_set)
             out1 <- t(out1)
             tag1 <- data.frame(cell_id = rownames(test_set), tag = pred_tags)
@@ -1731,23 +1776,47 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         tag2 <- as.matrix(tag2)
     } else {
         if (!is.null(corr_use_HVGene2)) {
-            num_feature <- corr_use_HVGene2/2
-            train_set <- query_set[colnames(select.exp),]
-            train_set$label <- vec.tag1
-            HVG <- SelectGene(train_set, k = num_feature)
+            if (method_HVGene == 'scibet') {
+                num_feature <- corr_use_HVGene2/2
+                train_set <- query_set[colnames(select.exp),]
+                train_set$label <- vec.tag1
+                HVG <- scibet::SelectGene(train_set, k = num_feature)
+            }
+            if (method_HVGene == 'SciBet_R') {
+                num_feature <- corr_use_HVGene2/2
+                train_set <- query_set[colnames(select.exp),]
+                train_set$label <- vec.tag1
+                HVG <- scibetR::SelectGene_R(train_set, k = num_feature)
+            }
+            if (method_HVGene == 'Seurat') {
+                HVG <- .get_high_variance_genes(LocalRef, num.genes = corr_use_HVGene2)
+            }
             similarity.in <- df.exp.merge[HVG, ]
             ref.in <- LocalRef[HVG, ]
         } else {
             similarity.in <- df.exp.merge
-            ref.in <- LocalRef
+            ref.in <- exp_ref_mat
         }
         if (method2 != 'multinomial') {
             out2 <- .get_cor(ref.in, similarity.in, method = method2, num_threads = num_threads)
             out2 <- t(out2)
             tag2 <- .get_tag_max(t(out2))
         } else {
-            test_set <- query_set
-            pred_tags <- SciBet(train_set, test_set, k=num_feature)
+            if (!(method_HVGene %in% c('scibet', 'SciBet_R'))) {
+                train_set <- query_set[colnames(select.exp),]
+            }
+            train_set <- train_set[, HVG]
+            train_set$label <- vec.tag1
+            test_set <- query_set[, HVG]
+            if (method_HVGene == 'SciBet_R') {
+                pred_tags <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'list')
+                # out2 <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'table')
+            } else {
+                pred_tags <- scibet::SciBet(train_set, test_set, k=num_feature, result = 'list')
+                out2 <- scibet::SciBet(train_set, test_set, k=num_feature, result = 'table')
+                rownames(out2) <- rownames(test_set)
+                out2 <- t(out2)
+            }
             tag2 <- data.frame(cell_id = rownames(query_set), tag = pred_tags)
             tag2 <- as.matrix(tag2)
         }
