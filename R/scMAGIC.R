@@ -634,7 +634,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
         dimnames(mtx.in)[[2]] <- names.mix
         if (use_RUVseq) {
-            library(RUVSeq, verbose = F)
+            suppressPackageStartupMessages(library(RUVSeq, verbose = F))
             seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=1, isLog = T)
             mtx.combat <- seqRUVg$normalizedCounts
         } else {
@@ -691,6 +691,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         stopCluster(cl)
     }
     names(RUN) <- cell.ref
+    for (cell in cell.ref) {
+        if (length(RUN[[cell]] == 0)) {
+            stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
+        }
+    }
 
     out <- list()
     out[['list.cell.genes']] <- RUN
@@ -956,6 +961,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         stopCluster(cl)
     }
     names(RUN) <- cell.ref
+    for (cell in cell.ref) {
+        if (length(RUN[[cell]] == 0)) {
+            stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
+        }
+    }
 
     out <- list()
     out[['list.cell.genes']] <- RUN
@@ -1354,7 +1364,8 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
 }
 
 
-.cutoff_AUC <- function(df.tags1, list_tags1_back, exp_sc_mat, threshold, num_threads = num_threads) {
+.cutoff_AUC <- function(df.tags1, list_tags1_back, exp_sc_mat, threshold,
+                        method_findmarker = method_findmarker, num_threads = num_threads) {
     library(parallel, verbose = F)
     cells <- as.character(unique(df.tags1$scRef.tag))
     vec.cutoff <- c()
@@ -1428,7 +1439,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         np.sum <- np$sum
     }
     if (method_HVGene == 'Seurat') {
-        library(Seurat)
+        suppressPackageStartupMessages(library(Seurat))
     }
     # check parameters
     # if (!type_ref %in% c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm')) {
