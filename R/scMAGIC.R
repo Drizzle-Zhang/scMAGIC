@@ -1632,7 +1632,8 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     df.tags1 <- merge(df.tags1, df.cluster, by = 'row.names')
     rownames(df.tags1) <- df.tags1$Row.names
     df.tags1$Row.names <- NULL
-    out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, exp_sc_mat, threshold, num_threads = num_threads)
+    out.cutoff <- .cutoff_AUC(df.tags1, list_tags1_back, exp_sc_mat, threshold,
+                              method_findmarker = method_findmarker, num_threads = num_threads)
     df.cutoff.1 <- out.cutoff$vec.cutoff
     neg.cutoff.1 <- out.cutoff$vec.neg.cutoff
     vec.cut_1 <- out.cutoff$vec.cut
