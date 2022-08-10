@@ -691,11 +691,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         stopCluster(cl)
     }
     names(RUN) <- cell.ref
-    for (cell in cell.ref) {
-        if (length(RUN[[cell]] == 0)) {
-            stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
-        }
-    }
+    # for (cell in cell.ref) {
+    #     if (length(RUN[[cell]] == 0)) {
+    #         stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
+    #     }
+    # }
 
     out <- list()
     out[['list.cell.genes']] <- RUN
@@ -961,11 +961,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         stopCluster(cl)
     }
     names(RUN) <- cell.ref
-    for (cell in cell.ref) {
-        if (length(RUN[[cell]] == 0)) {
-            stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
-        }
-    }
+    # for (cell in cell.ref) {
+    #     if (length(RUN[[cell]] == 0)) {
+    #         stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
+    #     }
+    # }
 
     out <- list()
     out[['list.cell.genes']] <- RUN
