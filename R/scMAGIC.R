@@ -446,7 +446,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
             sub_seurat <-
                 subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near),
                        feature = genes.ref)
-            sub_markers <- cosg(sub_seurat, groups=c(cell, cell_near), assay='RNA',
+            sub_markers <- cosg(sub_seurat, groups='all', assay='RNA',
                                 slot='data', mu=1, n_genes_user=topN*(n.neighbor-i+1))
             sub_markers_genes <- sub_markers$names[,cell]
             genes.ref <- intersect(genes.ref, sub_markers_genes)
@@ -691,13 +691,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         stopCluster(cl)
     }
     names(RUN) <- cell.ref
-    for (cell in cell.ref) {
-        if (length(RUN[[cell]]) == 0) {
-            # print(cell)
-            # print(length(RUN[[cell]]))
-            stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
-        }
-    }
+    # for (cell in cell.ref) {
+    #     if (length(RUN[[cell]] == 0)) {
+    #         stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
+    #     }
+    # }
 
     out <- list()
     out[['list.cell.genes']] <- RUN
@@ -709,7 +707,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
 
 .find_markers_sc_cell <- function(cell.ref, list_near_cell, mtx.combat, LocalRef.sum, percent.high.exp,
                                   select.exp, vec.tag1, list.localNeg, mtx.combat.use, topN, i) {
-    suppressPackageStartupMessages(library(Seurat, verbose = F))
+    library(Seurat, verbose = F)
     cell <- cell.ref[i]
     # print(cell)
     vec.cell <- mtx.combat[, paste0('Ref.', cell)]
@@ -813,7 +811,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
             sub_seurat <-
                 subset(seurat.Ref.cell, subset = original.label %in% c(cell, cell_near),
                        feature = genes.ref)
-            sub_markers <- cosg(sub_seurat, groups=c(cell, cell_near), assay='RNA',
+            sub_markers <- cosg(sub_seurat, groups='all', assay='RNA',
                                 slot='data', mu=1, n_genes_user=topN*(n.neighbor-i+1))
             sub_markers_genes <- sub_markers$names[,cell]
             genes.ref <- intersect(genes.ref, sub_markers_genes)
@@ -907,7 +905,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         names.mix <- c(paste0('MCA.', cell.MCA), paste0('Ref.', cell.ref))
         dimnames(mtx.in)[[2]] <- names.mix
         if (use_RUVseq) {
-            suppressPackageStartupMessages(library(RUVSeq, verbose = F))
+            library(RUVSeq, verbose = F)
             seqRUVg <- RUVg(as.matrix(mtx.in), gene.constant, k=3, isLog = T)
             mtx.combat <- seqRUVg$normalizedCounts
         } else {
@@ -963,11 +961,11 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         stopCluster(cl)
     }
     names(RUN) <- cell.ref
-    for (cell in cell.ref) {
-        if (length(RUN[[cell]]) == 0) {
-            stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
-        }
-    }
+    # for (cell in cell.ref) {
+    #     if (length(RUN[[cell]] == 0)) {
+    #         stop('Error: Failed to find marker genes! Please check whether you correctly install relevant packages.')
+    #     }
+    # }
 
     out <- list()
     out[['list.cell.genes']] <- RUN
@@ -1341,15 +1339,13 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         } else {
             cut_cluster_AUC <- 0
         }
-        if (nrow(df_cluster_median) >= 20 & sum(df_cluster_median$diff > 0.06) > 0) {
+        if (nrow(df_cluster_median) >= 20) {
             cut_class <- max(as.numeric(rownames(df_cluster_median))[df_cluster_median$diff > 0.06])
-            if (cut_class > round(nrow(df_cluster_median)/2)) {
-                drop_cluster <- df_cluster_median$cluster.id[1:cut_class]
-                cut_class <- min(cut_class, round(nrow(df_cluster_median)/2))
-                cut_diff <- df_cluster_median$diff[cut_class]
-                if (cut_diff > 2*max(df_cluster_median$diff[(cut_class+1):nrow(df_cluster_median)])) {
-                    cut_cluster_AUC <- max(quantile(df.sub$AUC[df.sub$cluster.id == drop_cluster[cut_class]], 0.9), cut_cluster_AUC)
-                }
+            drop_cluster <- df_cluster_median$cluster.id[1:cut_class]
+            cut_class <- min(cut_class, round(nrow(df_cluster_median)/2))
+            cut_diff <- df_cluster_median$diff[cut_class]
+            if (cut_diff > 2*max(df_cluster_median$diff[(cut_class+1):nrow(df_cluster_median)])) {
+                cut_cluster_AUC <- max(quantile(df.sub$AUC[df.sub$cluster.id == drop_cluster[cut_class]], 0.9), cut_cluster_AUC)
             }
         }
 
@@ -1420,7 +1416,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
                     single_round = F, identify_unassigned = T,
                     atlas = NULL, use_RUVseq = T,
                     method_findmarker = 'COSG',
-                    percent_high_exp = 0.85, num_marker_gene = 100,
+                    percent_high_exp = 0.7, num_marker_gene = 100,
                     cluster_num_pc = 50, cluster_resolution = 3,
                     combine_num_cell = NULL, min_cell = 1,
                     method1 = 'kendall', method2 = NULL,
@@ -1436,6 +1432,11 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     }
     if (method_HVGene == 'SciBet_R') {
         library(scibetR)
+        library(reticulate)
+        np <- import("numpy")
+        np.exp2 <- np$exp2
+        np.max <- np$max
+        np.sum <- np$sum
     }
     if (method_HVGene == 'Seurat') {
         suppressPackageStartupMessages(library(Seurat))
@@ -1451,14 +1452,14 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     type_ref = 'sc-counts'
     out.group = atlas
     opt_speed = F
-    # num_cell <- ncol(exp_sc_mat)
-    # if (is.null(combine_num_cell)) {
-    #     if (num_cell > 3000) {
-    #         combine_num_cell = 5
-    #     } else {
-    #         combine_num_cell = 3
-    #     }
-    # }
+    num_cell <- ncol(exp_sc_mat)
+    if (is.null(combine_num_cell)) {
+        if (num_cell > 3000) {
+            combine_num_cell = 5
+        } else {
+            combine_num_cell = 3
+        }
+    }
 
     time1 <- Sys.time()
     # get sum-counts format
@@ -1603,13 +1604,13 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
             test_set <- query_set[, HVG]
             if (method_HVGene == 'SciBet_R') {
                 pred_tags <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'list')
-                # out1 <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'table')
+                out1 <- scibetR::SciBet_R(train_set, test_set, k=num_feature, result = 'table')
             } else {
                 pred_tags <- scibet::SciBet(train_set, test_set, k=num_feature, result = 'list')
                 out1 <- scibet::SciBet(train_set, test_set, k=num_feature, result = 'table')
-                rownames(out1) <- rownames(test_set)
-                out1 <- t(out1)
             }
+            rownames(out1) <- rownames(test_set)
+            out1 <- t(out1)
             tag1 <- data.frame(cell_id = rownames(test_set), tag = pred_tags)
             tag1 <- as.matrix(tag1)
         }
@@ -1780,7 +1781,7 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         pca_query <- as.data.frame(seurat.query@reductions$pca@cell.embeddings)
         train_pca <- pca_query[colnames(select.exp), ]
         train_pca$label <- as.factor(vec.tag1)
-        suppressPackageStartupMessages(library(randomForest))
+        library(randomForest)
         fit.forest <- randomForest(label ~ ., data = train_pca)
         pred_tags <- predict(fit.forest, pca_query)
         tag2 <- data.frame(cell_id = rownames(pca_query), tag = pred_tags)
