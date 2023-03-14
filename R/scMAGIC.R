@@ -1169,6 +1169,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
     out.merge <- list()
     out.merge$df.dict <- df.dict
     out.merge$df.exp.merge <- df.exp.merge
+    out.merge$out.par <- out.par
     return(out.merge)
 
 }

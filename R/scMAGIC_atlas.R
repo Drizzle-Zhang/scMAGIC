@@ -748,7 +748,10 @@ scMAGIC_atlas <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
 
     # rm(exp_sc_mat)
     gc()
-    df.exp.merge <- as.matrix(df.exp.merge)
+    # df.exp.merge <- as.matrix(df.exp.merge)
+    out.overlap <- get_overlap_genes(df.exp.merge, exp_ref_mat)
+    df.exp.merge <- out.overlap$exp_sc_mat
+    exp_ref_mat <- out.overlap$exp_ref_mat
 
     print('First-round annotation:')
     print(method1)
@@ -767,7 +770,7 @@ scMAGIC_atlas <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         )
     } else {
         suppressMessages(
-            out1 <- .get_log_p_sc_given_ref(similarity.in, ref.in, num_threads = num_threads)
+            out1 <- .get_log_p_sc_given_ref(as.matrix(similarity.in), as.matrix(ref.in), num_threads = num_threads)
         )
     }
 
@@ -981,7 +984,7 @@ scMAGIC_atlas <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         )
     } else {
         suppressMessages(
-            out2 <- .get_log_p_sc_given_ref(similarity.in, ref.in, num_threads = num_threads)
+            out2 <- .get_log_p_sc_given_ref(as.matrix(similarity.in), as.matrix(ref.in), num_threads = num_threads)
         )
     }
     tag2 <- .get_tag_max(out2)
