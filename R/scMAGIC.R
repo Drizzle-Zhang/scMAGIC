@@ -1206,30 +1206,31 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
             total_mtx, verbose = F, plotStats = F)
 
         cell_markers <- list.cell.genes[[cell]]
-        cells_near <- list_near_cell[[cell]]
-        genes_near <- c()
-        if (length(cells_near) > 0) {
-            for (i in 1:length(cells_near)) {
-                genes_near <- c(genes_near, list.cell.genes[[cells_near[i]]])
-            }
-        } else {
-            other_ref <- setdiff(names(list.cell.genes), cell)
-            for (c in sample(other_ref, min(2, length(other_ref)))) {
-                genes_near <- c(genes_near, list.cell.genes[[c]])
-            }
-        }
+        # cells_near <- list_near_cell[[cell]]
+        # genes_near <- c()
+        # if (length(cells_near) > 0) {
+        #     for (i in 1:length(cells_near)) {
+        #         genes_near <- c(genes_near, list.cell.genes[[cells_near[i]]])
+        #     }
+        # } else {
+        #     other_ref <- setdiff(names(list.cell.genes), cell)
+        #     for (c in sample(other_ref, min(2, length(other_ref)))) {
+        #         genes_near <- c(genes_near, list.cell.genes[[c]])
+        #     }
+        # }
 
         # genes_near <- list.cell.genes[[cells_near[1]]]
         # genes_near <- unique(c(list.cell.genes[[cells_near[1]]], list.cell.genes[[cells_near[2]]]))
-        num_genes <- min(length(cell_markers), length(genes_near))
-        genes.marker <- sample(cell_markers, num_genes)
-        genes.back <- sample(genes_near, num_genes)
+        # num_genes <- min(length(cell_markers), length(genes_near))
+        # genes.marker <- sample(cell_markers, num_genes)
+        # genes.back <- sample(genes_near, num_genes)
         # genes.marker <- cell_markers
         # genes.back <- genes_near
 
+        genes.marker = cell_markers
         geneSets <- list(geneSet1=genes.marker)
         cells_AUC <- AUCell::AUCell_calcAUC(
-            geneSets, cells_rankings, aucMaxRank = length(genes.marker)/2, verbose = F)
+            geneSets, cells_rankings, aucMaxRank = ceiling(length(total_genes)*0.05), verbose = F)
 
         # df.tags1_cd8 <- df.tags1[colnames(exp_sc_mat)%in%
         #                              (colnames(exp_sc_mat)[tag1[,2]==cell]),]
@@ -1340,7 +1341,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         } else {
             cut_cluster_AUC <- 0
         }
-        if (nrow(df_cluster_median) >= 20) {
+        if (nrow(df_cluster_median) >= 20 & sum(df_cluster_median$diff > 0.06) > 0) {
             cut_class <- max(as.numeric(rownames(df_cluster_median))[df_cluster_median$diff > 0.06])
             drop_cluster <- df_cluster_median$cluster.id[1:cut_class]
             cut_class <- min(cut_class, round(nrow(df_cluster_median)/2))
@@ -1360,6 +1361,7 @@ getDEgeneF <- function(esetm = NULL, group = NULL, pair = FALSE,
         one_out[[3]] <- cut_AUC
         # one_out[[3]] <- median(cell_back)
     }
+    print(cell)
 
     return(one_out)
 }
@@ -1446,6 +1448,30 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
     # if (!type_ref %in% c('sc-counts', 'sum-counts', 'fpkm', 'tpm', 'rpkm')) {
     #     stop('Error: inexistent input of reference data format')
     # }
+
+    class_query <- class(exp_sc_mat)[[1]]
+    if (class_query %in% c("data.frame", "dgCMatrix", "matrix", "dgTMatrix")) {
+        if (class_query == "data.frame") {
+            exp_sc_mat <- as(as.matrix(exp_sc_mat), 'dgCMatrix')
+        }
+        if (class_query == "matrix") {
+            exp_sc_mat <- as(exp_sc_mat, 'dgCMatrix')
+        }
+    } else {
+        stop("Error: incorrect data format is input to 'exp_sc_mat'! ")
+    }
+    class_ref <- class(exp_ref_mat)[[1]]
+    if (class_ref %in% c("data.frame", "dgCMatrix", "matrix", "dgTMatrix")) {
+        if (class_ref == "data.frame") {
+            exp_ref_mat <- as(as.matrix(exp_ref_mat), 'dgCMatrix')
+        }
+        if (class_ref == "matrix") {
+            exp_ref_mat <- as(exp_ref_mat, 'dgCMatrix')
+        }
+    } else {
+        stop("Error: incorrect data format is input to 'exp_ref_mat'! ")
+    }
+
     cutoff.1 = 'default'
     cutoff.2 = 'default'
     mod = ''
@@ -1650,7 +1676,10 @@ scMAGIC <- function(exp_sc_mat, exp_ref_mat, exp_ref_label = NULL,
         names(pvalue1) <- c('scRef.tag.1', 'AUC.1', 'tag_unassaigned.1')
         df_unassigned <- pvalue1[cell_ids, ]
         df_unassigned$tag.final <- pvalue1$scRef.tag.1
-        df_unassigned$tag.final[df_unassigned$tag_unassaigned.1 == 'Unassigned'] <- 'Unassigned'
+        # df_unassigned$tag.final[df_unassigned$tag_unassaigned.1 == 'Unassigned'] <- 'Unassigned'
+        if (identify_unassigned) {
+            df_unassigned$tag.final[df_unassigned$tag_unassaigned.1 == 'Unassigned'] <- 'Unassigned'
+        }
 
         df.tags <- merge(df_unassigned, df.cluster, by = 'row.names')
         row.names(df.tags) <- df.tags$Row.names
